@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main>
+    <h1>Task Manager</h1>
+
+    <div id="toast" class="toast" role="alert" hidden></div>
+
+    <section class="controls" aria-label="Search, filter and sort">
+      <label for="search">Search</label>
+      <input id="search" type="search" placeholder="Search title..." />
+
+      <label for="statusFilter">Status</label>
+      <select id="statusFilter">
+        <option value="">All</option>
+        <option value="todo">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="done">Done</option>
+      </select>
+
+      <label for="priorityFilter">Priority</label>
+      <select id="priorityFilter">
+        <option value="">All</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+
+      <label for="sortBy">Sort by</label>
+      <select id="sortBy">
+        <option value="created_at">Created</option>
+        <option value="due_date">Due date</option>
+        <option value="priority">Priority</option>
+      </select>
+
+      <label for="sortDir">Direction</label>
+      <select id="sortDir">
+        <option value="asc">Asc</option>
+        <option value="desc">Desc</option>
+      </select>
+    </section>
+
+    <form id="addForm" aria-label="Add a task">
+      <label for="title">Title</label>
+      <input id="title" name="title" type="text" required maxlength="200" />
+
+      <label for="dueDate">Due date</label>
+      <input id="dueDate" name="due_date" type="date" />
+
+      <label for="priority">Priority</label>
+      <select id="priority" name="priority">
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+      </select>
+
+      <button type="submit">Add task</button>
+    </form>
+
+    <ul id="taskList" aria-label="Tasks"></ul>
+    <p id="emptyState" hidden>No tasks match your search/filters.</p>
+  </main>
+
+  <template id="taskRowTemplate">
+    <li class="task-row">
+      <input type="checkbox" class="task-done-toggle" />
+      <span class="task-title"></span>
+      <span class="task-priority"></span>
+      <span class="task-due"></span>
+      <button type="button" class="btn-edit">Edit</button>
+      <button type="button" class="btn-advance"></button>
+      <button type="button" class="btn-delete">Delete</button>
+    </li>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

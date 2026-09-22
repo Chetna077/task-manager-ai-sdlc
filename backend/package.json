@@ -1,0 +1,17 @@
+{
+  "name": "task-manager-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Task Manager backend (Express + node:sqlite) for the AI-Assistant-Driven SDLC capstone",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "task-manager-ai-sdlc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capstone: AI-Assistant-Driven SDLC with Human-in-the-Loop & Tooling — Task Manager enhancement",
+  "scripts": {
+    "start": "npm start --prefix backend",
+    "test:unit": "npm test --prefix backend",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report tests/reports/html"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}
