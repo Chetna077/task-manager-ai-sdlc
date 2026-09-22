@@ -29,6 +29,16 @@ test('rejects invalid due_date', () => {
   assert.throws(() => validateTaskInput({ title: 'a', due_date: 'not-a-date' }), ValidationError);
 });
 
+test('rejects due_date that is not strict YYYY-MM-DD, even if Date can parse it', () => {
+  assert.throws(() => validateTaskInput({ title: 'a', due_date: '2024' }), ValidationError);
+  assert.throws(() => validateTaskInput({ title: 'a', due_date: 'March 2024' }), ValidationError);
+});
+
+test('accepts a valid YYYY-MM-DD due_date', () => {
+  const out = validateTaskInput({ title: 'a', due_date: '2026-09-22' });
+  assert.equal(out.due_date, '2026-09-22');
+});
+
 test('accepts null due_date to clear it (partial update)', () => {
   const out = validateTaskInput({ due_date: null }, { partial: true });
   assert.equal(out.due_date, null);

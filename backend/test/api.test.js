@@ -67,6 +67,26 @@ test('PUT /api/tasks/:id updates a task', async () => {
   });
 });
 
+test('PUT /api/tasks/:id persists a description edit (TM-101)', async () => {
+  await withServer(async (base) => {
+    const created = await (await fetch(`${base}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Original', description: 'first draft' }),
+    })).json();
+    assert.equal(created.description, 'first draft');
+
+    const updateRes = await fetch(`${base}/api/tasks/${created.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'revised draft' }),
+    });
+    const updated = await updateRes.json();
+    assert.equal(updated.description, 'revised draft');
+    assert.equal(updated.title, 'Original');
+  });
+});
+
 test('PUT /api/tasks/:id on unknown id returns 404', async () => {
   await withServer(async (base) => {
     const res = await fetch(`${base}/api/tasks/9999`, {
@@ -135,5 +155,22 @@ test('GET /api/tasks?search= filters by title substring', async () => {
     const results = await res.json();
     assert.equal(results.length, 1);
     assert.equal(results[0].title, 'Write report');
+  });
+});
+
+test('GET /api/tasks tolerates a repeated query key instead of erroring', async () => {
+  await withServer(async (base) => {
+    await fetch(`${base}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'A', status: 'todo' }),
+    });
+
+    // ?status=todo&status=done makes Express parse status as an array;
+    // the route must normalize this instead of passing an array to SQLite.
+    const res = await fetch(`${base}/api/tasks?status=todo&status=done`);
+    assert.equal(res.status, 200);
+    const results = await res.json();
+    assert.equal(results.length, 1);
   });
 });

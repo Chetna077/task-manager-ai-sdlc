@@ -12,8 +12,17 @@ function createApp(dbPath) {
   app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'public')));
 
   app.get('/api/tasks', (req, res) => {
+    // Query params can arrive as arrays if a key is repeated (?status=a&status=b);
+    // take the first value so listTasks always gets a plain string or undefined.
+    const asString = (v) => (Array.isArray(v) ? v[0] : v);
     const { search, status, priority, sortBy, sortDir } = req.query;
-    const tasks = repo.listTasks({ search, status, priority, sortBy, sortDir });
+    const tasks = repo.listTasks({
+      search: asString(search),
+      status: asString(status),
+      priority: asString(priority),
+      sortBy: asString(sortBy),
+      sortDir: asString(sortDir),
+    });
     res.json(tasks);
   });
 
@@ -23,18 +32,18 @@ function createApp(dbPath) {
     res.json(task);
   });
 
-  app.post('/api/tasks', (req, res) => {
+  app.post('/api/tasks', (req, res, next) => {
     try {
       const data = validateTaskInput(req.body, { partial: false });
       const task = repo.createTask(data);
       res.status(201).json(task);
     } catch (err) {
       if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
-      res.status(500).json({ error: 'internal error' });
+      next(err);
     }
   });
 
-  app.put('/api/tasks/:id', (req, res) => {
+  app.put('/api/tasks/:id', (req, res, next) => {
     try {
       const data = validateTaskInput(req.body, { partial: true });
       const task = repo.updateTask(Number(req.params.id), data);
@@ -42,7 +51,7 @@ function createApp(dbPath) {
       res.json(task);
     } catch (err) {
       if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
-      res.status(500).json({ error: 'internal error' });
+      next(err);
     }
   });
 
@@ -64,6 +73,7 @@ function createApp(dbPath) {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
+    console.error(err);
     res.status(500).json({ error: 'internal error' });
   });
 

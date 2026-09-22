@@ -61,8 +61,19 @@ button.btn-delete {
   background: #b42318;
 }
 
-button.btn-edit {
+button.btn-edit,
+button.btn-cancel {
   background: #6b7280;
+}
+
+.task-description {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.task-status {
+  font-size: 0.8rem;
+  color: #374151;
 }
 
 #taskList {

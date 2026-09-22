@@ -50,6 +50,9 @@
       <label for="title">Title</label>
       <input id="title" name="title" type="text" required maxlength="200" />
 
+      <label for="description">Description</label>
+      <input id="description" name="description" type="text" maxlength="2000" />
+
       <label for="dueDate">Due date</label>
       <input id="dueDate" name="due_date" type="date" />
 
@@ -71,6 +74,8 @@
     <li class="task-row">
       <input type="checkbox" class="task-done-toggle" />
       <span class="task-title"></span>
+      <span class="task-description"></span>
+      <span class="task-status"></span>
       <span class="task-priority"></span>
       <span class="task-due"></span>
       <button type="button" class="btn-edit">Edit</button>

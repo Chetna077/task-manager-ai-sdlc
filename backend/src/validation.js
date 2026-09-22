@@ -4,7 +4,7 @@ const PRIORITIES = ['low', 'medium', 'high'];
 class ValidationError extends Error {}
 
 function isValidIsoDate(value) {
-  if (typeof value !== 'string') return false;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const d = new Date(value);
   return !Number.isNaN(d.getTime());
 }

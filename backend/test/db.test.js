@@ -87,3 +87,16 @@ test('deleteTask returns false for unknown id', () => {
   const repo = freshRepo();
   assert.equal(repo.deleteTask(9999), false);
 });
+
+test('listTasks search escapes SQL LIKE wildcards (% and _)', () => {
+  const repo = freshRepo();
+  // Without escaping, the pattern for searching "50%" is "%50%%" - since %
+  // is a wildcard, that matches ANY title containing "50" followed by
+  // anything, which would wrongly include "I have 50 apples" too.
+  repo.createTask({ title: '50% discount', status: 'todo', priority: 'medium' });
+  repo.createTask({ title: 'I have 50 apples', status: 'todo', priority: 'medium' });
+
+  const results = repo.listTasks({ search: '50%' });
+  assert.equal(results.length, 1);
+  assert.equal(results[0].title, '50% discount');
+});

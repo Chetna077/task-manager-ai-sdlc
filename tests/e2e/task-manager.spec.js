@@ -41,12 +41,25 @@ test('edit a task title', async ({ page }) => {
   await expect(page.locator('.task-row', { hasText: 'Draft' })).toBeVisible();
 
   await page.click('.task-row >> text=Edit');
-  const editInput = page.locator('.task-row input[type="text"]');
+  const editInput = page.getByRole('textbox', { name: 'Edit title' });
   await editInput.fill('Final draft');
   await page.click('.task-row >> text=Save');
 
   await expect(page.locator('.task-row', { hasText: 'Final draft' })).toBeVisible();
   await expect(page.locator('.task-row', { hasText: 'Draft', hasNotText: 'Final' })).toHaveCount(0);
+});
+
+test('edit a task description (TM-101)', async ({ page }) => {
+  await page.fill('#title', 'Plan launch');
+  await page.click('#addForm button[type="submit"]');
+  const row = page.locator('.task-row', { hasText: 'Plan launch' });
+  await expect(row).toBeVisible();
+
+  await row.locator('.btn-edit').click();
+  await page.getByRole('textbox', { name: 'Edit description' }).fill('Coordinate with marketing');
+  await page.click('.task-row >> text=Save');
+
+  await expect(row.locator('.task-description')).toHaveText('Coordinate with marketing');
 });
 
 test('advance status to Done then reopen', async ({ page }) => {

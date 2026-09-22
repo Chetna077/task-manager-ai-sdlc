@@ -1,19 +1,21 @@
 const { DatabaseSync } = require('node:sqlite');
 const fs = require('node:fs');
 const path = require('node:path');
+const { PRIORITIES } = require('./validation');
 
 const SORT_COLUMNS = { due_date: 'due_date', priority: 'priority', created_at: 'created_at' };
 
+// Derived from the shared PRIORITIES enum (low < medium < high) so the sort
+// severity can never drift from the enum definition if a tier is added/renamed.
+const PRIORITY_CASE_SQL =
+  'CASE priority ' +
+  PRIORITIES.map((p, i) => `WHEN '${p}' THEN ${i + 1}`).join(' ') +
+  ' ELSE 0 END';
+
 function openDb(dbPath) {
-  const isNew = !fs.existsSync(dbPath) || dbPath === ':memory:';
   const db = new DatabaseSync(dbPath);
-  if (isNew) {
-    const schema = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
-    db.exec(schema);
-  } else {
-    const schema = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
-    db.exec(schema); // idempotent CREATE TABLE/INDEX IF NOT EXISTS
-  }
+  const schema = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
+  db.exec(schema); // idempotent CREATE TABLE/INDEX IF NOT EXISTS - safe on existing DBs too
   return db;
 }
 
@@ -31,8 +33,9 @@ class TaskRepository {
     const params = [];
 
     if (search) {
-      clauses.push('title LIKE ? COLLATE NOCASE');
-      params.push(`%${search}%`);
+      const escaped = search.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+      clauses.push("title LIKE ? ESCAPE '\\' COLLATE NOCASE");
+      params.push(`%${escaped}%`);
     }
     if (status) {
       clauses.push('status = ?');
@@ -47,7 +50,7 @@ class TaskRepository {
     const dir = String(sortDir).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
     const orderKey = SORT_COLUMNS[sortBy]
       ? sortBy === 'priority'
-        ? "CASE priority WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END"
+        ? PRIORITY_CASE_SQL
         : SORT_COLUMNS[sortBy]
       : 'created_at';
     const sql = `SELECT * FROM tasks ${where} ORDER BY ${orderKey} ${dir}, id ASC`;

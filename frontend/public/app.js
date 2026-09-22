@@ -55,9 +55,20 @@ function buildQuery() {
   return params.toString();
 }
 
+function todayLocalDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function isOverdue(task) {
   if (!task.due_date || task.status === 'done') return false;
-  return new Date(task.due_date) < new Date(new Date().toDateString());
+  // Compare plain date strings (both YYYY-MM-DD) rather than Date objects,
+  // since new Date('YYYY-MM-DD') parses as UTC while new Date() is local -
+  // mixing the two misflags "due today" as overdue depending on timezone.
+  return task.due_date.slice(0, 10) < todayLocalDateString();
 }
 
 function renderTasks(tasks) {
@@ -84,6 +95,8 @@ function renderTasks(tasks) {
     toggle.addEventListener('change', () => setStatus(task.id, toggle.checked ? 'done' : 'todo'));
 
     node.querySelector('.task-title').textContent = task.title;
+    node.querySelector('.task-description').textContent = task.description || '';
+    node.querySelector('.task-status').textContent = STATUS_LABELS[task.status];
 
     const priorityEl = node.querySelector('.task-priority');
     priorityEl.textContent = task.priority;
@@ -112,9 +125,16 @@ function renderTasks(tasks) {
   }
 }
 
+let loadTasksSequence = 0;
+
 async function loadTasks() {
+  const requestId = ++loadTasksSequence;
   const res = await apiFetch(`/api/tasks?${buildQuery()}`);
   const tasks = await res.json();
+  // Ignore this response if a newer loadTasks() call has started since we
+  // began - otherwise a slow response for an earlier keystroke can overwrite
+  // the list with stale results after a faster, more recent request landed.
+  if (requestId !== loadTasksSequence) return;
   renderTasks(tasks);
 }
 
@@ -143,6 +163,12 @@ function startEdit(task) {
   titleInput.setAttribute('aria-label', 'Edit title');
   titleInput.maxLength = 200;
 
+  const descriptionInput = document.createElement('input');
+  descriptionInput.type = 'text';
+  descriptionInput.value = task.description || '';
+  descriptionInput.setAttribute('aria-label', 'Edit description');
+  descriptionInput.maxLength = 2000;
+
   const dueInput = document.createElement('input');
   dueInput.type = 'date';
   dueInput.value = task.due_date || '';
@@ -167,6 +193,7 @@ function startEdit(task) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: titleInput.value,
+        description: descriptionInput.value || null,
         due_date: dueInput.value || null,
         priority: prioritySelect.value,
       }),
@@ -176,11 +203,11 @@ function startEdit(task) {
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
-  cancelBtn.className = 'btn-edit';
+  cancelBtn.className = 'btn-cancel';
   cancelBtn.textContent = 'Cancel';
   cancelBtn.addEventListener('click', loadTasks);
 
-  row.append(titleInput, dueInput, prioritySelect, saveBtn, cancelBtn);
+  row.append(titleInput, descriptionInput, dueInput, prioritySelect, saveBtn, cancelBtn);
 }
 
 function wireControls() {
@@ -208,12 +235,13 @@ function wireControls() {
   el('addForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = el('title').value;
+    const description = el('description').value || null;
     const due_date = el('dueDate').value || null;
     const priority = el('priority').value;
     await apiFetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, due_date, priority }),
+      body: JSON.stringify({ title, description, due_date, priority }),
     });
     e.target.reset();
     el('priority').value = 'medium';
