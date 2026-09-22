@@ -1,0 +1,16 @@
+<testsuites id="" name="" tests="6" failures="0" skipped="0" errors="0" time="3.9738870000000004">
+<testsuite name="task-manager.spec.js" timestamp="2026-09-22T14:04:24.215Z" hostname="" tests="6" failures="0" skipped="0" time="1.91" errors="0">
+<testcase name="create a task" classname="task-manager.spec.js" time="0.327">
+</testcase>
+<testcase name="rejects an empty title" classname="task-manager.spec.js" time="0.227">
+</testcase>
+<testcase name="edit a task title" classname="task-manager.spec.js" time="0.349">
+</testcase>
+<testcase name="advance status to Done then reopen" classname="task-manager.spec.js" time="0.443">
+</testcase>
+<testcase name="search filters the visible list" classname="task-manager.spec.js" time="0.26">
+</testcase>
+<testcase name="delete removes the task" classname="task-manager.spec.js" time="0.304">
+</testcase>
+</testsuite>
+</testsuites>
