@@ -19,4 +19,9 @@ with its human-in-the-loop review artifact.
 
 All nine steps above are represented in this repository's commit history —
 each phase lands as its own commit(s) so the SDLC progression is inspectable
-with `git log`.
+with `git log`. The Jira and Confluence artifacts described locally in
+`docs/jira/` and `docs/confluence/` were also created for real:
+
+- Jira Epic TM-EPIC-001 + backlog: https://chetnadeshwal24.atlassian.net/browse/SCRUM-5
+- Confluence space (FRD, Architecture & Design, Wireframes): https://chetnadeshwal24.atlassian.net/wiki/spaces/TMC/overview
+- Source + full commit history: https://github.com/Chetna077/task-manager-ai-sdlc

@@ -15,6 +15,14 @@ npm start --prefix backend
 
 Open http://localhost:3000.
 
+## Live artifacts
+
+| Artifact | Where |
+|---|---|
+| Source + git history | https://github.com/Chetna077/task-manager-ai-sdlc |
+| Confluence (FRD, Architecture & Design, Wireframes) | https://chetnadeshwal24.atlassian.net/wiki/spaces/TMC/overview |
+| Jira (Epic TM-EPIC-001 + backlog) | https://chetnadeshwal24.atlassian.net/browse/SCRUM-5 |
+
 ## Run tests
 
 ```powershell
