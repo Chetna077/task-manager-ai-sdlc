@@ -1,0 +1,66 @@
+assistants:
+  - id: ba
+    assistant_id: 6664727e-d917-4806-ad06-7d9cc0303bc5
+  - id: plan
+    assistant_id: 260124b3-5881-4834-8c5d-807f8338e920
+  - id: design
+    assistant_id: 457e7b0d-b0b7-4157-8358-06b536b3c891
+  - id: code
+    assistant_id: 88330d3a-13ef-41bc-985e-6143a607feaf
+  - id: review
+    assistant_id: e476947f-1ab8-4fbd-afe6-3173c738d323
+  - id: test
+    assistant_id: af4069d5-3498-4823-b628-0fea72d601d3
+  - id: deploy
+    assistant_id: 2ea4eccc-e3d1-4ec5-9436-e2b87de6c6c9
+  - id: docs
+    assistant_id: a467e7e5-aef9-4a39-b5ff-26a32fa0e38b
+states:
+  - id: Business_Analyst
+    assistant_id: ba
+    task: Analyze the Task Manager application in the user input. Produce gap analysis, epics, user stories with acceptance criteria, priority and effort for Jira. No design or code.
+    next: {state_id: Planning_Assistant}
+    interrupt_before: false
+    result_as_human_message: true
+  - id: Planning_Assistant
+    assistant_id: plan
+    task: "Using the approved epics and stories, produce the implementation plan: sprints, tasks, risks, dependencies, milestones."
+    next: {state_id: Solution_Design}
+    interrupt_before: true
+    result_as_human_message: true
+  - id: Solution_Design
+    assistant_id: design
+    task: Using the approved plan, produce architecture, HLD, LLD, APIs, database design, wireframes, security and NFRs for Confluence.
+    next: {state_id: Code_Development}
+    interrupt_before: true
+    result_as_human_message: true
+  - id: Code_Development
+    assistant_id: code
+    task: Using the approved design, implement the Task Manager enhancements (backend, frontend, database scripts) and describe the commit and PR.
+    next: {state_id: Code_Review}
+    interrupt_before: true
+    result_as_human_message: true
+  - id: Code_Review
+    assistant_id: review
+    task: "Review the code changes as a PR reviewer: correctness, security, performance, maintainability. List findings by severity with suggested fixes."
+    next: {state_id: Testing}
+    interrupt_before: true
+    result_as_human_message: true
+  - id: Testing
+    assistant_id: test
+    task: Produce Gherkin test cases, Playwright scripts and a test execution report for the approved stories.
+    next: {state_id: Deployment}
+    interrupt_before: true
+    result_as_human_message: true
+  - id: Deployment
+    assistant_id: deploy
+    task: Produce the build steps, build artefact and local Node deployment steps with health checks and rollback.
+    next: {state_id: Documentation}
+    interrupt_before: true
+    result_as_human_message: true
+  - id: Documentation
+    assistant_id: docs
+    task: Produce Confluence-ready documentation and README updates covering requirements, design, build, tests and deployment.
+    next: {state_id: end}
+    interrupt_before: true
+    result_as_human_message: true
