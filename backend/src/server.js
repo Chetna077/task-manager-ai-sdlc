@@ -15,12 +15,13 @@ function createApp(dbPath) {
     // Query params can arrive as arrays if a key is repeated (?status=a&status=b);
     // take the first value so listTasks always gets a plain string or undefined.
     const asString = (v) => (Array.isArray(v) ? v[0] : v);
-    const { search, status, priority, tag, sortBy, sortDir } = req.query;
+    const { search, status, priority, tag, archived, sortBy, sortDir } = req.query;
     const tasks = repo.listTasks({
       search: asString(search),
       status: asString(status),
       priority: asString(priority),
       tag: asString(tag),
+      archived: asString(archived) === 'true',
       sortBy: asString(sortBy),
       sortDir: asString(sortDir),
     });
@@ -66,10 +67,24 @@ function createApp(dbPath) {
     res.json(task);
   });
 
+  // Archive/restore replace hard delete (SCRUM-7/8). DELETE is kept as an alias
+  // of archive so existing clients keep working; nothing removes rows any more.
+  const archive = (req, res) => {
+    const task = repo.archiveTask(Number(req.params.id));
+    if (!task) return res.status(404).json({ error: 'task not found' });
+    res.json(task);
+  };
+  app.post('/api/tasks/:id/archive', archive);
   app.delete('/api/tasks/:id', (req, res) => {
-    const deleted = repo.deleteTask(Number(req.params.id));
-    if (!deleted) return res.status(404).json({ error: 'task not found' });
+    const task = repo.archiveTask(Number(req.params.id));
+    if (!task) return res.status(404).json({ error: 'task not found' });
     res.status(204).end();
+  });
+
+  app.post('/api/tasks/:id/restore', (req, res) => {
+    const task = repo.restoreTask(Number(req.params.id));
+    if (!task) return res.status(404).json({ error: 'task not found' });
+    res.json(task);
   });
 
   // eslint-disable-next-line no-unused-vars

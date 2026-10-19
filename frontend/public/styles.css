@@ -57,10 +57,6 @@ button {
   border: none;
 }
 
-button.btn-delete {
-  background: #b42318;
-}
-
 button.btn-edit,
 button.btn-cancel {
   background: #6b7280;
@@ -143,4 +139,21 @@ button.tag-chip {
   background: #ecfdf3;
   color: #027a48;
   border: 1px solid #a6f4c5;
+}
+
+button.btn-archive {
+  background: #b54708;
+}
+
+button.btn-restore {
+  background: #027a48;
+}
+
+.task-row.archived .task-title {
+  color: var(--done);
+  font-style: italic;
+}
+
+[hidden] {
+  display: none !important;
 }

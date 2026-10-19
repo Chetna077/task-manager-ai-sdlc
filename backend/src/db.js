@@ -14,7 +14,10 @@ const PRIORITY_CASE_SQL =
 
 // SQLite has no ADD COLUMN IF NOT EXISTS, so each migration is guarded by a
 // check for its column. Files live in db/migrations/ and run in order.
-const MIGRATIONS = [{ column: 'tags', file: '001_add_tags.sql' }];
+const MIGRATIONS = [
+  { column: 'tags', file: '001_add_tags.sql' },
+  { column: 'archived_at', file: '002_add_archived_at.sql' },
+];
 
 function migrate(db) {
   const exists = db
@@ -51,8 +54,9 @@ class TaskRepository {
     this.db = db;
   }
 
-  listTasks({ search, status, priority, tag, sortBy, sortDir } = {}) {
-    const clauses = [];
+  listTasks({ search, status, priority, tag, archived, sortBy, sortDir } = {}) {
+    // Active tasks by default; archived === true selects the archived view.
+    const clauses = [archived === true ? 'archived_at IS NOT NULL' : 'archived_at IS NULL'];
     const params = [];
 
     if (search) {
@@ -141,9 +145,27 @@ class TaskRepository {
     return this.getTask(id);
   }
 
-  deleteTask(id) {
-    const result = this.db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
-    return result.changes > 0;
+  // Soft delete: keeps the row, so it can be restored. Idempotent - archiving
+  // an already-archived task keeps its original archived_at.
+  archiveTask(id) {
+    const existing = this.getTask(id);
+    if (!existing) return null;
+    if (!existing.archived_at) {
+      const ts = nowIso();
+      this.db.prepare('UPDATE tasks SET archived_at = ?, updated_at = ? WHERE id = ?').run(ts, ts, id);
+    }
+    return this.getTask(id);
+  }
+
+  restoreTask(id) {
+    const existing = this.getTask(id);
+    if (!existing) return null;
+    if (existing.archived_at) {
+      this.db
+        .prepare('UPDATE tasks SET archived_at = NULL, updated_at = ? WHERE id = ?')
+        .run(nowIso(), id);
+    }
+    return this.getTask(id);
   }
 }
 

@@ -10,7 +10,7 @@ const { test, expect } = require('@playwright/test');
 async function clearAllTasks(request, baseURL) {
   const res = await request.get(`${baseURL}/api/tasks`);
   const tasks = await res.json();
-  await Promise.all(tasks.map((t) => request.delete(`${baseURL}/api/tasks/${t.id}`)));
+  await Promise.all(tasks.map((t) => request.post(`${baseURL}/api/tasks/${t.id}/archive`)));
 }
 
 test.beforeEach(async ({ page, request, baseURL }) => {
@@ -89,14 +89,25 @@ test('search filters the visible list', async ({ page }) => {
   await expect(page.locator('.task-row', { hasText: 'Fix bug' })).toHaveCount(0);
 });
 
-test('delete removes the task', async ({ page }) => {
+test('archive hides the task; archived view lists it; restore brings it back (SCRUM-7/8)', async ({ page }) => {
   await page.fill('#title', 'Old task');
   await page.click('#addForm button[type="submit"]');
   const row = page.locator('.task-row', { hasText: 'Old task' });
   await expect(row).toBeVisible();
 
-  await row.locator('.btn-delete').click();
+  await row.locator('.btn-archive').click();
   await expect(row).toHaveCount(0);
+
+  await page.check('#showArchived');
+  const archivedRow = page.locator('.task-row', { hasText: 'Old task' });
+  await expect(archivedRow).toBeVisible();
+  await expect(archivedRow.locator('.btn-edit')).toBeHidden();
+
+  await archivedRow.locator('.btn-restore').click();
+  await expect(archivedRow).toHaveCount(0);
+
+  await page.uncheck('#showArchived');
+  await expect(page.locator('.task-row', { hasText: 'Old task' })).toBeVisible();
 });
 
 test('add tags and filter by tag (SCRUM-12/13)', async ({ page }) => {

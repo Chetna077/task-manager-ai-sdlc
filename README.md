@@ -74,13 +74,14 @@ docs/plan.md, docs/demo-flow.md, docs/code-review.md, docs/deployment.md
 | Feature | Jira | Endpoint / behaviour |
 |---|---|---|
 | Tags | SCRUM-12, SCRUM-13 | `tags` (array) on POST/PUT; `GET /api/tasks?tag=work` filters by exact tag. Tags are trimmed, lowercased, de-duplicated; max 10 per task, 30 chars each. Click a tag chip in the UI to filter. |
+| Archive / restore | SCRUM-7, SCRUM-8 | `POST /api/tasks/:id/archive`, `POST /api/tasks/:id/restore`, `GET /api/tasks?archived=true` (default list excludes archived). `DELETE /api/tasks/:id` is kept as an alias of archive — **nothing hard-deletes rows any more**. UI: Archive button + "Show archived" toggle with Restore. |
 
 Databases created before a column existed are upgraded automatically on start
 by `backend/db/migrations/*.sql` (see `openDb()`); no manual step needed.
 
 ## Scope
 
-Single-user, delete-only (no archive), web-only. All three enhancement
+Single-user, web-only; tasks are archived (restorable), never hard-deleted. All three enhancement
 groups from the BA Assistant's backlog are in scope: Edit/Delete/Reopen,
 Due date/Priority/Status, Search/Filter/Sort. See
 [docs/human-review-log.md](docs/human-review-log.md) for the human decisions

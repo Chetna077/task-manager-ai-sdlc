@@ -76,16 +76,50 @@ test('setStatus supports reopen (done -> todo)', () => {
   assert.equal(reopened.status, 'todo');
 });
 
-test('deleteTask removes the row and returns true', () => {
+test('archiveTask hides the task from the default list but keeps the row (SCRUM-7)', () => {
   const repo = freshRepo();
   const task = repo.createTask({ title: 'A', status: 'todo', priority: 'medium' });
-  assert.equal(repo.deleteTask(task.id), true);
-  assert.equal(repo.getTask(task.id), null);
+  const archived = repo.archiveTask(task.id);
+  assert.ok(archived.archived_at);
+  assert.equal(repo.listTasks().length, 0);
+  assert.equal(repo.getTask(task.id).title, 'A');
 });
 
-test('deleteTask returns false for unknown id', () => {
+test('listTasks({ archived: true }) returns only archived tasks and honours filters', () => {
   const repo = freshRepo();
-  assert.equal(repo.deleteTask(9999), false);
+  const a = repo.createTask({ title: 'Alpha', status: 'todo', priority: 'high', tags: ['x'] });
+  const b = repo.createTask({ title: 'Beta', status: 'todo', priority: 'low' });
+  repo.createTask({ title: 'Active', status: 'todo', priority: 'high', tags: ['x'] });
+  repo.archiveTask(a.id);
+  repo.archiveTask(b.id);
+
+  assert.deepEqual(repo.listTasks({ archived: true }).map((t) => t.title), ['Alpha', 'Beta']);
+  assert.deepEqual(repo.listTasks({ archived: true, tag: 'x' }).map((t) => t.title), ['Alpha']);
+  assert.deepEqual(repo.listTasks({ archived: true, search: 'bet' }).map((t) => t.title), ['Beta']);
+  assert.deepEqual(repo.listTasks().map((t) => t.title), ['Active']);
+});
+
+test('restoreTask returns the task to the default list (SCRUM-8)', () => {
+  const repo = freshRepo();
+  const task = repo.createTask({ title: 'A', status: 'in_progress', priority: 'medium' });
+  repo.archiveTask(task.id);
+  const restored = repo.restoreTask(task.id);
+  assert.equal(restored.archived_at, null);
+  assert.equal(restored.status, 'in_progress');
+  assert.equal(repo.listTasks().length, 1);
+});
+
+test('archiveTask is idempotent and keeps the original archived_at', () => {
+  const repo = freshRepo();
+  const task = repo.createTask({ title: 'A', status: 'todo', priority: 'medium' });
+  const first = repo.archiveTask(task.id).archived_at;
+  assert.equal(repo.archiveTask(task.id).archived_at, first);
+});
+
+test('archiveTask / restoreTask return null for unknown id', () => {
+  const repo = freshRepo();
+  assert.equal(repo.archiveTask(9999), null);
+  assert.equal(repo.restoreTask(9999), null);
 });
 
 test('listTasks search escapes SQL LIKE wildcards (% and _)', () => {
@@ -153,6 +187,7 @@ test('openDb migrates a pre-tags database in place without losing rows', () => {
   const db = openDb(file);
   const repo = new TaskRepository(db);
   assert.deepEqual(repo.listTasks().map((t) => [t.title, t.tags]), [['legacy', []]]);
+  assert.equal(repo.getTask(1).archived_at, null); // archived_at column added too (SCRUM-7)
   db.close();
   openDb(file).close(); // second open is a no-op (idempotent)
   fs.rmSync(path.dirname(file), { recursive: true, force: true });

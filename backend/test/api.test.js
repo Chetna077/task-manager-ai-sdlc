@@ -122,7 +122,7 @@ test('PATCH /api/tasks/:id/status moves done -> todo (reopen)', async () => {
   });
 });
 
-test('DELETE /api/tasks/:id removes the task', async () => {
+test('DELETE /api/tasks/:id archives instead of hard deleting (SCRUM-7)', async () => {
   await withServer(async (base) => {
     const created = await (await fetch(`${base}/api/tasks`, {
       method: 'POST',
@@ -133,8 +133,16 @@ test('DELETE /api/tasks/:id removes the task', async () => {
     const delRes = await fetch(`${base}/api/tasks/${created.id}`, { method: 'DELETE' });
     assert.equal(delRes.status, 204);
 
-    const getRes = await fetch(`${base}/api/tasks/${created.id}`);
-    assert.equal(getRes.status, 404);
+    assert.equal((await (await fetch(`${base}/api/tasks`)).json()).length, 0);
+    const got = await fetch(`${base}/api/tasks/${created.id}`);
+    assert.equal(got.status, 200);
+    assert.ok((await got.json()).archived_at);
+  });
+});
+
+test('DELETE on unknown id returns 404', async () => {
+  await withServer(async (base) => {
+    assert.equal((await fetch(`${base}/api/tasks/9999`, { method: 'DELETE' })).status, 404);
   });
 });
 
@@ -207,5 +215,34 @@ test('POST /api/tasks rejects invalid tags with 400', async () => {
   await withServer(async (base) => {
     const res = await postJson(base, { title: 'A', tags: ['x'.repeat(31)] });
     assert.equal(res.status, 400);
+  });
+});
+
+test('archive -> archived view -> restore round trip (SCRUM-7/8)', async () => {
+  await withServer(async (base) => {
+    const created = await (await postJson(base, { title: 'Keep me', tags: ['x'] })).json();
+    await postJson(base, { title: 'Other' });
+
+    const archRes = await fetch(`${base}/api/tasks/${created.id}/archive`, { method: 'POST' });
+    assert.equal(archRes.status, 200);
+    assert.ok((await archRes.json()).archived_at);
+
+    const active = await (await fetch(`${base}/api/tasks`)).json();
+    assert.deepEqual(active.map((t) => t.title), ['Other']);
+    const archived = await (await fetch(`${base}/api/tasks?archived=true`)).json();
+    assert.deepEqual(archived.map((t) => t.title), ['Keep me']);
+
+    const restRes = await fetch(`${base}/api/tasks/${created.id}/restore`, { method: 'POST' });
+    assert.equal(restRes.status, 200);
+    assert.equal((await restRes.json()).archived_at, null);
+    assert.equal((await (await fetch(`${base}/api/tasks`)).json()).length, 2);
+    assert.equal((await (await fetch(`${base}/api/tasks?archived=true`)).json()).length, 0);
+  });
+});
+
+test('archive/restore on unknown id return 404', async () => {
+  await withServer(async (base) => {
+    assert.equal((await fetch(`${base}/api/tasks/9999/archive`, { method: 'POST' })).status, 404);
+    assert.equal((await fetch(`${base}/api/tasks/9999/restore`, { method: 'POST' })).status, 404);
   });
 });

@@ -35,6 +35,10 @@
       <label for="tagFilter">Tag</label>
       <input id="tagFilter" type="search" placeholder="Filter by tag..." />
 
+      <label for="showArchived">
+        <input id="showArchived" type="checkbox" /> Show archived
+      </label>
+
       <label for="sortBy">Sort by</label>
       <select id="sortBy">
         <option value="created_at">Created</option>
@@ -87,7 +91,8 @@
       <span class="task-due"></span>
       <button type="button" class="btn-edit">Edit</button>
       <button type="button" class="btn-advance"></button>
-      <button type="button" class="btn-delete">Delete</button>
+      <button type="button" class="btn-archive">Archive</button>
+      <button type="button" class="btn-restore">Restore</button>
     </li>
   </template>
 

@@ -5,6 +5,7 @@ const state = {
   status: '',
   priority: '',
   tag: '',
+  archived: false,
   sortBy: 'created_at',
   sortDir: 'asc',
 };
@@ -52,6 +53,7 @@ function buildQuery() {
   if (state.status) params.set('status', state.status);
   if (state.priority) params.set('priority', state.priority);
   if (state.tag) params.set('tag', state.tag);
+  if (state.archived) params.set('archived', 'true');
   params.set('sortBy', state.sortBy);
   params.set('sortDir', state.sortDir);
   return params.toString();
@@ -141,9 +143,22 @@ function renderTasks(tasks) {
     advanceBtn.setAttribute('aria-label', `${ADVANCE_LABEL[task.status]} "${task.title}"`);
     advanceBtn.addEventListener('click', () => setStatus(task.id, NEXT_STATUS[task.status]));
 
-    const deleteBtn = node.querySelector('.btn-delete');
-    deleteBtn.setAttribute('aria-label', `Delete "${task.title}"`);
-    deleteBtn.addEventListener('click', () => deleteTask(task.id, task.title));
+    const archiveBtn = node.querySelector('.btn-archive');
+    archiveBtn.setAttribute('aria-label', `Archive "${task.title}"`);
+    archiveBtn.addEventListener('click', () => archiveTask(task.id));
+
+    const restoreBtn = node.querySelector('.btn-restore');
+    restoreBtn.setAttribute('aria-label', `Restore "${task.title}"`);
+    restoreBtn.addEventListener('click', () => restoreTask(task.id));
+
+    // Archived tasks are read-only apart from Restore; active ones can't be restored.
+    if (state.archived) {
+      row.classList.add('archived');
+      for (const sel of ['.btn-edit', '.btn-advance', '.btn-archive']) node.querySelector(sel).hidden = true;
+      toggle.disabled = true;
+    } else {
+      restoreBtn.hidden = true;
+    }
 
     list.appendChild(node);
   }
@@ -171,9 +186,13 @@ async function setStatus(id, status) {
   await loadTasks();
 }
 
-async function deleteTask(id, title) {
-  if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
-  await apiFetch(`/api/tasks/${id}`, { method: 'DELETE' });
+async function archiveTask(id) {
+  await apiFetch(`/api/tasks/${id}/archive`, { method: 'POST' });
+  await loadTasks();
+}
+
+async function restoreTask(id) {
+  await apiFetch(`/api/tasks/${id}/restore`, { method: 'POST' });
   await loadTasks();
 }
 
@@ -255,6 +274,11 @@ function wireControls() {
   });
   el('tagFilter').addEventListener('input', (e) => {
     state.tag = e.target.value.trim();
+    loadTasks();
+  });
+  el('showArchived').addEventListener('change', (e) => {
+    state.archived = e.target.checked;
+    el('addForm').hidden = state.archived;
     loadTasks();
   });
   el('sortBy').addEventListener('change', (e) => {
