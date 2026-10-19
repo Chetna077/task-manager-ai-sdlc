@@ -174,3 +174,38 @@ test('GET /api/tasks tolerates a repeated query key instead of erroring', async 
     assert.equal(results.length, 1);
   });
 });
+
+const postJson = (base, body) =>
+  fetch(`${base}/api/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+test('POST/PUT accept tags and GET ?tag= filters on them (SCRUM-12/13)', async () => {
+  await withServer(async (base) => {
+    const created = await (await postJson(base, { title: 'A', tags: ['Work', 'urgent'] })).json();
+    assert.deepEqual(created.tags, ['work', 'urgent']);
+    await postJson(base, { title: 'B', tags: ['home'] });
+    await postJson(base, { title: 'C' });
+
+    const work = await (await fetch(`${base}/api/tasks?tag=work`)).json();
+    assert.deepEqual(work.map((t) => t.title), ['A']);
+
+    const put = await fetch(`${base}/api/tasks/${created.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: ['home'] }),
+    });
+    assert.deepEqual((await put.json()).tags, ['home']);
+    const home = await (await fetch(`${base}/api/tasks?tag=home`)).json();
+    assert.equal(home.length, 2);
+  });
+});
+
+test('POST /api/tasks rejects invalid tags with 400', async () => {
+  await withServer(async (base) => {
+    const res = await postJson(base, { title: 'A', tags: ['x'.repeat(31)] });
+    assert.equal(res.status, 400);
+  });
+});

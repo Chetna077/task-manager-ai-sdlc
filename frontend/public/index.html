@@ -32,6 +32,9 @@
         <option value="high">High</option>
       </select>
 
+      <label for="tagFilter">Tag</label>
+      <input id="tagFilter" type="search" placeholder="Filter by tag..." />
+
       <label for="sortBy">Sort by</label>
       <select id="sortBy">
         <option value="created_at">Created</option>
@@ -56,6 +59,9 @@
       <label for="dueDate">Due date</label>
       <input id="dueDate" name="due_date" type="date" />
 
+      <label for="tags">Tags</label>
+      <input id="tags" name="tags" type="text" placeholder="comma, separated" />
+
       <label for="priority">Priority</label>
       <select id="priority" name="priority">
         <option value="low">Low</option>
@@ -77,6 +83,7 @@
       <span class="task-description"></span>
       <span class="task-status"></span>
       <span class="task-priority"></span>
+      <span class="task-tags"></span>
       <span class="task-due"></span>
       <button type="button" class="btn-edit">Edit</button>
       <button type="button" class="btn-advance"></button>

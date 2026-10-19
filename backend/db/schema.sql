@@ -1,4 +1,7 @@
--- Task Manager schema (TM-101..TM-109)
+-- Task Manager schema (TM-101..TM-109, SCRUM-12/13 tags)
+-- Fresh databases get the full table below. Databases created before a column
+-- was added are upgraded by openDb() running the matching file in
+-- db/migrations/ (ALTER TABLE ... ADD COLUMN) before this script executes.
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -6,6 +9,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
     due_date TEXT,
+    tags TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

@@ -4,6 +4,7 @@ const state = {
   search: '',
   status: '',
   priority: '',
+  tag: '',
   sortBy: 'created_at',
   sortDir: 'asc',
 };
@@ -50,9 +51,17 @@ function buildQuery() {
   if (state.search) params.set('search', state.search);
   if (state.status) params.set('status', state.status);
   if (state.priority) params.set('priority', state.priority);
+  if (state.tag) params.set('tag', state.tag);
   params.set('sortBy', state.sortBy);
   params.set('sortDir', state.sortDir);
   return params.toString();
+}
+
+function parseTags(text) {
+  return text
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 function todayLocalDateString() {
@@ -100,6 +109,21 @@ function renderTasks(tasks) {
 
     const priorityEl = node.querySelector('.task-priority');
     priorityEl.textContent = task.priority;
+
+    const tagsEl = node.querySelector('.task-tags');
+    for (const tag of task.tags || []) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag-chip';
+      chip.textContent = tag;
+      chip.setAttribute('aria-label', `Filter by tag ${tag}`);
+      chip.addEventListener('click', () => {
+        state.tag = tag;
+        el('tagFilter').value = tag;
+        loadTasks();
+      });
+      tagsEl.appendChild(chip);
+    }
 
     const dueEl = node.querySelector('.task-due');
     if (task.due_date) {
@@ -174,6 +198,11 @@ function startEdit(task) {
   dueInput.value = task.due_date || '';
   dueInput.setAttribute('aria-label', 'Edit due date');
 
+  const tagsInput = document.createElement('input');
+  tagsInput.type = 'text';
+  tagsInput.value = (task.tags || []).join(', ');
+  tagsInput.setAttribute('aria-label', 'Edit tags');
+
   const prioritySelect = document.createElement('select');
   prioritySelect.setAttribute('aria-label', 'Edit priority');
   for (const p of ['low', 'medium', 'high']) {
@@ -196,6 +225,7 @@ function startEdit(task) {
         description: descriptionInput.value || null,
         due_date: dueInput.value || null,
         priority: prioritySelect.value,
+        tags: parseTags(tagsInput.value),
       }),
     });
     await loadTasks();
@@ -207,7 +237,7 @@ function startEdit(task) {
   cancelBtn.textContent = 'Cancel';
   cancelBtn.addEventListener('click', loadTasks);
 
-  row.append(titleInput, descriptionInput, dueInput, prioritySelect, saveBtn, cancelBtn);
+  row.append(titleInput, descriptionInput, dueInput, tagsInput, prioritySelect, saveBtn, cancelBtn);
 }
 
 function wireControls() {
@@ -221,6 +251,10 @@ function wireControls() {
   });
   el('priorityFilter').addEventListener('change', (e) => {
     state.priority = e.target.value;
+    loadTasks();
+  });
+  el('tagFilter').addEventListener('input', (e) => {
+    state.tag = e.target.value.trim();
     loadTasks();
   });
   el('sortBy').addEventListener('change', (e) => {
@@ -238,10 +272,11 @@ function wireControls() {
     const description = el('description').value || null;
     const due_date = el('dueDate').value || null;
     const priority = el('priority').value;
+    const tags = parseTags(el('tags').value);
     await apiFetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description, due_date, priority }),
+      body: JSON.stringify({ title, description, due_date, priority, tags }),
     });
     e.target.reset();
     el('priority').value = 'medium';

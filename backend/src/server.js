@@ -15,11 +15,12 @@ function createApp(dbPath) {
     // Query params can arrive as arrays if a key is repeated (?status=a&status=b);
     // take the first value so listTasks always gets a plain string or undefined.
     const asString = (v) => (Array.isArray(v) ? v[0] : v);
-    const { search, status, priority, sortBy, sortDir } = req.query;
+    const { search, status, priority, tag, sortBy, sortDir } = req.query;
     const tasks = repo.listTasks({
       search: asString(search),
       status: asString(status),
       priority: asString(priority),
+      tag: asString(tag),
       sortBy: asString(sortBy),
       sortDir: asString(sortDir),
     });

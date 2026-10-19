@@ -69,6 +69,15 @@ docs/plan.md, docs/demo-flow.md, docs/code-review.md, docs/deployment.md
 | Deployment (local) | [docs/deployment.md](docs/deployment.md) |
 | Human-in-the-loop record | [docs/human-review-log.md](docs/human-review-log.md) |
 
+## Features and API
+
+| Feature | Jira | Endpoint / behaviour |
+|---|---|---|
+| Tags | SCRUM-12, SCRUM-13 | `tags` (array) on POST/PUT; `GET /api/tasks?tag=work` filters by exact tag. Tags are trimmed, lowercased, de-duplicated; max 10 per task, 30 chars each. Click a tag chip in the UI to filter. |
+
+Databases created before a column existed are upgraded automatically on start
+by `backend/db/migrations/*.sql` (see `openDb()`); no manual step needed.
+
 ## Scope
 
 Single-user, delete-only (no archive), web-only. All three enhancement

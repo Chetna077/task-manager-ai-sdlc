@@ -98,3 +98,18 @@ test('delete removes the task', async ({ page }) => {
   await row.locator('.btn-delete').click();
   await expect(row).toHaveCount(0);
 });
+
+test('add tags and filter by tag (SCRUM-12/13)', async ({ page }) => {
+  await page.fill('#title', 'Tagged one');
+  await page.fill('#tags', 'Work, urgent');
+  await page.click('#addForm button[type="submit"]');
+  await page.fill('#title', 'Untagged');
+  await page.click('#addForm button[type="submit"]');
+
+  const row = page.locator('.task-row', { hasText: 'Tagged one' });
+  await expect(row.locator('.tag-chip')).toHaveText(['work', 'urgent']);
+
+  await page.fill('#tagFilter', 'work');
+  await expect(page.locator('.task-row', { hasText: 'Untagged' })).toHaveCount(0);
+  await expect(row).toBeVisible();
+});
