@@ -20,7 +20,7 @@ states:
     assistant_id: ba
     task: Analyze the Task Manager application in the user input. Produce gap analysis, epics, user stories with acceptance criteria, priority and effort for Jira. No design or code.
     next: {state_id: Planning_Assistant}
-    interrupt_before: false
+    interrupt_before: true
     result_as_human_message: true
   - id: Planning_Assistant
     assistant_id: plan
