@@ -192,3 +192,24 @@ test('openDb migrates a pre-tags database in place without losing rows', () => {
   openDb(file).close(); // second open is a no-op (idempotent)
   fs.rmSync(path.dirname(file), { recursive: true, force: true });
 });
+
+test('listTasksPage slices the same ordered result set as listTasks (SCRUM-14)', () => {
+  const repo = freshRepo();
+  for (let i = 1; i <= 7; i++) {
+    repo.createTask({ title: `T${i}`, status: 'todo', priority: ['low', 'high'][i % 2] });
+  }
+  const opts = { sortBy: 'priority', sortDir: 'desc' };
+  const all = repo.listTasks(opts).map((t) => t.id);
+  const p1 = repo.listTasksPage({ ...opts, page: 1, pageSize: 3 });
+  const p3 = repo.listTasksPage({ ...opts, page: 3, pageSize: 3 });
+  assert.deepEqual(p1.items.map((t) => t.id), all.slice(0, 3));
+  assert.deepEqual(p3.items.map((t) => t.id), all.slice(6));
+  assert.deepEqual([p1.total, p1.totalPages, p3.items.length], [7, 3, 1]);
+});
+
+test('listTasksPage defaults to page 1, size 10', () => {
+  const repo = freshRepo();
+  for (let i = 0; i < 12; i++) repo.createTask({ title: `T${i}`, status: 'todo', priority: 'medium' });
+  const p = repo.listTasksPage();
+  assert.deepEqual([p.page, p.pageSize, p.items.length, p.totalPages], [1, 10, 10, 2]);
+});

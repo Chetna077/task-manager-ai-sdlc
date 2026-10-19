@@ -157,3 +157,17 @@ button.btn-restore {
 [hidden] {
   display: none !important;
 }
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+}
+
+.pager button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}

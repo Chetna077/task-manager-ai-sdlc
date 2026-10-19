@@ -78,6 +78,19 @@
 
     <ul id="taskList" aria-label="Tasks"></ul>
     <p id="emptyState" hidden>No tasks match your search/filters.</p>
+
+    <nav id="pager" class="pager" aria-label="Pagination" hidden>
+      <button type="button" id="prevPage">Previous</button>
+      <span id="pageInfo" aria-live="polite"></span>
+      <button type="button" id="nextPage">Next</button>
+      <label for="pageSize">Per page</label>
+      <select id="pageSize">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </nav>
   </main>
 
   <template id="taskRowTemplate">

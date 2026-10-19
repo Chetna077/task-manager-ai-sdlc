@@ -6,6 +6,8 @@ const state = {
   priority: '',
   tag: '',
   archived: false,
+  page: 1,
+  pageSize: 10,
   sortBy: 'created_at',
   sortDir: 'asc',
 };
@@ -54,6 +56,8 @@ function buildQuery() {
   if (state.priority) params.set('priority', state.priority);
   if (state.tag) params.set('tag', state.tag);
   if (state.archived) params.set('archived', 'true');
+  params.set('page', String(state.page));
+  params.set('pageSize', String(state.pageSize));
   params.set('sortBy', state.sortBy);
   params.set('sortDir', state.sortDir);
   return params.toString();
@@ -122,7 +126,7 @@ function renderTasks(tasks) {
       chip.addEventListener('click', () => {
         state.tag = tag;
         el('tagFilter').value = tag;
-        loadTasks();
+        resetAndLoad();
       });
       tagsEl.appendChild(chip);
     }
@@ -169,12 +173,34 @@ let loadTasksSequence = 0;
 async function loadTasks() {
   const requestId = ++loadTasksSequence;
   const res = await apiFetch(`/api/tasks?${buildQuery()}`);
-  const tasks = await res.json();
+  const body = await res.json();
   // Ignore this response if a newer loadTasks() call has started since we
   // began - otherwise a slow response for an earlier keystroke can overwrite
   // the list with stale results after a faster, more recent request landed.
   if (requestId !== loadTasksSequence) return;
-  renderTasks(tasks);
+
+  // The last page can vanish (e.g. its only task was archived); step back
+  // to the new last page instead of showing an empty list.
+  if (body.items.length === 0 && body.total > 0 && state.page > body.totalPages) {
+    state.page = body.totalPages;
+    return loadTasks();
+  }
+  renderTasks(body.items);
+  renderPager(body);
+}
+
+function renderPager({ page, totalPages, total }) {
+  const pager = el('pager');
+  pager.hidden = total === 0;
+  el('pageInfo').textContent = `Page ${page} of ${totalPages} (${total} task${total === 1 ? '' : 's'})`;
+  el('prevPage').disabled = page <= 1;
+  el('nextPage').disabled = page >= totalPages;
+}
+
+// Any change to search/filter/sort/view starts again from page 1.
+function resetAndLoad() {
+  state.page = 1;
+  return loadTasks();
 }
 
 async function setStatus(id, status) {
@@ -262,31 +288,44 @@ function startEdit(task) {
 function wireControls() {
   el('search').addEventListener('input', (e) => {
     state.search = e.target.value;
-    loadTasks();
+    resetAndLoad();
   });
   el('statusFilter').addEventListener('change', (e) => {
     state.status = e.target.value;
-    loadTasks();
+    resetAndLoad();
   });
   el('priorityFilter').addEventListener('change', (e) => {
     state.priority = e.target.value;
-    loadTasks();
+    resetAndLoad();
   });
   el('tagFilter').addEventListener('input', (e) => {
     state.tag = e.target.value.trim();
-    loadTasks();
+    resetAndLoad();
   });
   el('showArchived').addEventListener('change', (e) => {
     state.archived = e.target.checked;
     el('addForm').hidden = state.archived;
-    loadTasks();
+    resetAndLoad();
   });
   el('sortBy').addEventListener('change', (e) => {
     state.sortBy = e.target.value;
-    loadTasks();
+    resetAndLoad();
   });
   el('sortDir').addEventListener('change', (e) => {
     state.sortDir = e.target.value;
+    resetAndLoad();
+  });
+
+  el('pageSize').addEventListener('change', (e) => {
+    state.pageSize = Number(e.target.value);
+    resetAndLoad();
+  });
+  el('prevPage').addEventListener('click', () => {
+    state.page -= 1;
+    loadTasks();
+  });
+  el('nextPage').addEventListener('click', () => {
+    state.page += 1;
     loadTasks();
   });
 

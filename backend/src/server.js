@@ -1,6 +1,6 @@
 const path = require('node:path');
 const express = require('express');
-const { openDb, TaskRepository } = require('./db');
+const { openDb, TaskRepository, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } = require('./db');
 const { validateTaskInput, ValidationError, STATUSES } = require('./validation');
 
 function createApp(dbPath) {
@@ -16,7 +16,24 @@ function createApp(dbPath) {
     // take the first value so listTasks always gets a plain string or undefined.
     const asString = (v) => (Array.isArray(v) ? v[0] : v);
     const { search, status, priority, tag, archived, sortBy, sortDir } = req.query;
-    const tasks = repo.listTasks({
+    // Absent -> default; present but not a positive integer (or pageSize over
+    // the cap) -> 400 rather than silently returning a different page.
+    const parsePositiveInt = (raw, fallback, max) => {
+      if (raw === undefined || raw === '') return fallback;
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || (max && n > max)) return null;
+      return n;
+    };
+    const page = parsePositiveInt(asString(req.query.page), 1);
+    const pageSize = parsePositiveInt(asString(req.query.pageSize), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    if (page === null) return res.status(400).json({ error: 'page must be a positive integer' });
+    if (pageSize === null) {
+      return res.status(400).json({ error: `pageSize must be an integer between 1 and ${MAX_PAGE_SIZE}` });
+    }
+
+    const result = repo.listTasksPage({
+      page,
+      pageSize,
       search: asString(search),
       status: asString(status),
       priority: asString(priority),
@@ -25,7 +42,7 @@ function createApp(dbPath) {
       sortBy: asString(sortBy),
       sortDir: asString(sortDir),
     });
-    res.json(tasks);
+    res.json(result);
   });
 
   app.get('/api/tasks/:id', (req, res) => {

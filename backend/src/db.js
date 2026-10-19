@@ -3,6 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { PRIORITIES } = require('./validation');
 
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 100;
+
 const SORT_COLUMNS = { due_date: 'due_date', priority: 'priority', created_at: 'created_at' };
 
 // Derived from the shared PRIORITIES enum (low < medium < high) so the sort
@@ -54,7 +57,9 @@ class TaskRepository {
     this.db = db;
   }
 
-  listTasks({ search, status, priority, tag, archived, sortBy, sortDir } = {}) {
+  // Shared by listTasks and listTasksPage so the page count and the page rows
+  // always come from the same WHERE/ORDER BY.
+  buildListQuery({ search, status, priority, tag, archived, sortBy, sortDir } = {}) {
     // Active tasks by default; archived === true selects the archived view.
     const clauses = [archived === true ? 'archived_at IS NOT NULL' : 'archived_at IS NULL'];
     const params = [];
@@ -86,10 +91,28 @@ class TaskRepository {
         ? PRIORITY_CASE_SQL
         : SORT_COLUMNS[sortBy]
       : 'created_at';
-    const sql = `SELECT * FROM tasks ${where} ORDER BY ${orderKey} ${dir}, id ASC`;
+    // id is the final tiebreaker so pages are stable when sort keys collide.
+    const orderBy = `ORDER BY ${orderKey} ${dir}, id ASC`;
+    return { where, orderBy, params };
+  }
 
-    const stmt = this.db.prepare(sql);
-    return stmt.all(...params).map(toTask);
+  listTasks(filters = {}) {
+    const { where, orderBy, params } = this.buildListQuery(filters);
+    return this.db
+      .prepare(`SELECT * FROM tasks ${where} ${orderBy}`)
+      .all(...params)
+      .map(toTask);
+  }
+
+  // SCRUM-14: one page of the same result set listTasks would return.
+  listTasksPage({ page = 1, pageSize = DEFAULT_PAGE_SIZE, ...filters } = {}) {
+    const { where, orderBy, params } = this.buildListQuery(filters);
+    const total = this.db.prepare(`SELECT COUNT(*) AS n FROM tasks ${where}`).get(...params).n;
+    const items = this.db
+      .prepare(`SELECT * FROM tasks ${where} ${orderBy} LIMIT ? OFFSET ?`)
+      .all(...params, pageSize, (page - 1) * pageSize)
+      .map(toTask);
+    return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
   }
 
   getTask(id) {
@@ -169,4 +192,4 @@ class TaskRepository {
   }
 }
 
-module.exports = { openDb, TaskRepository };
+module.exports = { openDb, TaskRepository, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE };

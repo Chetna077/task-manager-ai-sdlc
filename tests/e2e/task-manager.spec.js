@@ -8,9 +8,11 @@ const { test, expect } = require('@playwright/test');
 // file, so each test must clear existing tasks first or state leaks between
 // tests (e.g. a task created in one test still being visible in the next).
 async function clearAllTasks(request, baseURL) {
-  const res = await request.get(`${baseURL}/api/tasks`);
-  const tasks = await res.json();
-  await Promise.all(tasks.map((t) => request.post(`${baseURL}/api/tasks/${t.id}/archive`)));
+  const res = await request.get(`${baseURL}/api/tasks?pageSize=100`);
+  const { items } = await res.json();
+  await Promise.all(items.map((t) => request.post(`${baseURL}/api/tasks/${t.id}/archive`)));
+  // more than one page of leftovers: go again until the active list is empty
+  if (items.length === 100) await clearAllTasks(request, baseURL);
 }
 
 test.beforeEach(async ({ page, request, baseURL }) => {
@@ -123,4 +125,24 @@ test('add tags and filter by tag (SCRUM-12/13)', async ({ page }) => {
   await page.fill('#tagFilter', 'work');
   await expect(page.locator('.task-row', { hasText: 'Untagged' })).toHaveCount(0);
   await expect(row).toBeVisible();
+});
+
+test('pagination: next/previous, and filters reset to page 1 (SCRUM-14)', async ({ page, request, baseURL }) => {
+  for (let i = 1; i <= 7; i++) {
+    await request.post(`${baseURL}/api/tasks`, { data: { title: `Paged ${i}`, tags: i === 7 ? ['last'] : [] } });
+  }
+  await page.reload();
+  await page.selectOption('#pageSize', '5');
+  await expect(page.locator('.task-row')).toHaveCount(5);
+  await expect(page.locator('#pageInfo')).toHaveText('Page 1 of 2 (7 tasks)');
+  await expect(page.locator('#prevPage')).toBeDisabled();
+
+  await page.click('#nextPage');
+  await expect(page.locator('.task-row')).toHaveCount(2);
+  await expect(page.locator('#nextPage')).toBeDisabled();
+
+  await page.fill('#search', 'paged');
+  await expect(page.locator('#pageInfo')).toHaveText('Page 1 of 2 (7 tasks)');
+  await page.fill('#tagFilter', 'last');
+  await expect(page.locator('#pageInfo')).toHaveText('Page 1 of 1 (1 task)');
 });

@@ -75,6 +75,7 @@ docs/plan.md, docs/demo-flow.md, docs/code-review.md, docs/deployment.md
 |---|---|---|
 | Tags | SCRUM-12, SCRUM-13 | `tags` (array) on POST/PUT; `GET /api/tasks?tag=work` filters by exact tag. Tags are trimmed, lowercased, de-duplicated; max 10 per task, 30 chars each. Click a tag chip in the UI to filter. |
 | Archive / restore | SCRUM-7, SCRUM-8 | `POST /api/tasks/:id/archive`, `POST /api/tasks/:id/restore`, `GET /api/tasks?archived=true` (default list excludes archived). `DELETE /api/tasks/:id` is kept as an alias of archive — **nothing hard-deletes rows any more**. UI: Archive button + "Show archived" toggle with Restore. |
+| Pagination | SCRUM-14 | `GET /api/tasks?page=1&pageSize=10` (default 10, max 100; invalid values → 400) returns `{ items, total, page, pageSize, totalPages }`. Works together with `search`, `status`, `priority`, `tag`, `archived`, `sortBy`, `sortDir`; ordering is stable (ties broken by id). **Breaking:** the list response is no longer a bare array. UI: Previous/Next, page size, filters reset to page 1. |
 
 Databases created before a column existed are upgraded automatically on start
 by `backend/db/migrations/*.sql` (see `openDb()`); no manual step needed.
