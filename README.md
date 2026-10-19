@@ -37,8 +37,15 @@ Reports land in `tests/reports/` (HTML + JUnit XML).
 ## Build a deployable artifact
 
 ```powershell
-.\scripts\build.ps1
+.\scripts\build.ps1                    # default version 1.1.0
+.\scripts\build.ps1 -Version 1.2.0
 ```
+
+The script installs backend dependencies, runs the backend unit/API tests
+(the build **fails** if any test fails), then writes
+`dist/task-manager-build-v<Version>.zip` containing `backend/` (including
+`db/schema.sql` and `db/migrations/`), `frontend/` and this README. Zips for
+other versions already in `dist/` are left alone.
 
 ## Project layout
 
@@ -76,6 +83,7 @@ docs/plan.md, docs/demo-flow.md, docs/code-review.md, docs/deployment.md
 | Tags | SCRUM-12, SCRUM-13 | `tags` (array) on POST/PUT; `GET /api/tasks?tag=work` filters by exact tag. Tags are trimmed, lowercased, de-duplicated; max 10 per task, 30 chars each. Click a tag chip in the UI to filter. |
 | Archive / restore | SCRUM-7, SCRUM-8 | `POST /api/tasks/:id/archive`, `POST /api/tasks/:id/restore`, `GET /api/tasks?archived=true` (default list excludes archived). `DELETE /api/tasks/:id` is kept as an alias of archive — **nothing hard-deletes rows any more**. UI: Archive button + "Show archived" toggle with Restore. |
 | Pagination | SCRUM-14 | `GET /api/tasks?page=1&pageSize=10` (default 10, max 100; invalid values → 400) returns `{ items, total, page, pageSize, totalPages }`. Works together with `search`, `status`, `priority`, `tag`, `archived`, `sortBy`, `sortDir`; ordering is stable (ties broken by id). **Breaking:** the list response is no longer a bare array. UI: Previous/Next, page size, filters reset to page 1. |
+| Accessibility & UX | SCRUM-16 | Inline field validation (`aria-invalid` + `aria-describedby` error text, focus moves to the first bad field); full keyboard operation (skip link, visible focus ring, Enter saves / Escape cancels an edit, focus is returned to a sensible element after each action); screen-reader announcements via a polite live region; failed requests show a dismissible error with a **Retry** button (network errors and 5xx only — 4xx validation errors are not retryable). |
 
 Databases created before a column existed are upgraded automatically on start
 by `backend/db/migrations/*.sql` (see `openDb()`); no manual step needed.

@@ -16,23 +16,46 @@ const STATUS_LABELS = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' 
 const NEXT_STATUS = { todo: 'in_progress', in_progress: 'done', done: 'todo' };
 const ADVANCE_LABEL = { todo: 'Start', in_progress: 'Done', done: 'Reopen' };
 
-function showToast(message) {
-  const toast = el('toast');
-  toast.textContent = message;
-  toast.hidden = false;
+// Network failures and 5xx are worth retrying; a 4xx means the request itself
+// was rejected, so repeating it unchanged would fail the same way.
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+    this.retryable = status === 0 || status >= 500;
+  }
+}
+
+let toastRetry = null;
+
+function showToast(message, retry) {
+  el('toastMessage').textContent = message;
+  toastRetry = retry || null;
+  el('toastRetry').hidden = !retry;
+  el('toast').hidden = false;
 }
 
 function hideToast() {
+  toastRetry = null;
   el('toast').hidden = true;
+}
+
+// Polite announcement for screen readers (no visual change).
+function announce(message) {
+  const live = el('liveStatus');
+  live.textContent = '';
+  // set on the next tick so repeated identical messages are re-announced
+  setTimeout(() => {
+    live.textContent = message;
+  }, 50);
 }
 
 async function apiFetch(path, options) {
   let res;
   try {
     res = await fetch(path, options);
-  } catch (err) {
-    showToast('Could not reach the server. Please try again.');
-    throw err;
+  } catch {
+    throw new ApiError('Could not reach the server. Please try again.', 0);
   }
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -42,11 +65,23 @@ async function apiFetch(path, options) {
     } catch {
       /* ignore body parse failure */
     }
-    showToast(message);
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
-  hideToast();
   return res;
+}
+
+// Runs a user-triggered action. On failure shows the error, with a Retry
+// button (when retrying can help) that re-runs the same action. Resolves to
+// true on success so callers can chain UI follow-ups.
+async function run(action) {
+  try {
+    await action();
+    hideToast();
+    return true;
+  } catch (err) {
+    showToast(err.message, err.retryable ? () => run(action) : null);
+    return false;
+  }
 }
 
 function buildQuery() {
@@ -86,6 +121,19 @@ function isOverdue(task) {
   return task.due_date.slice(0, 10) < todayLocalDateString();
 }
 
+// After a re-render the element the user acted on may be gone; put focus on a
+// sensible target instead of dropping it to <body>.
+let pendingFocus = null;
+
+function restoreFocus() {
+  if (!pendingFocus) return;
+  const target = document.querySelector(pendingFocus) || el('taskList');
+  pendingFocus = null;
+  target.focus();
+}
+
+const rowSelector = (id, child) => `.task-row[data-id="${id}"] ${child}`;
+
 function renderTasks(tasks) {
   const list = el('taskList');
   const empty = el('emptyState');
@@ -107,7 +155,9 @@ function renderTasks(tasks) {
     const toggle = node.querySelector('.task-done-toggle');
     toggle.checked = task.status === 'done';
     toggle.setAttribute('aria-label', `Mark "${task.title}" done`);
-    toggle.addEventListener('change', () => setStatus(task.id, toggle.checked ? 'done' : 'todo'));
+    toggle.addEventListener('change', () =>
+      setStatus(task.id, toggle.checked ? 'done' : 'todo', '.task-done-toggle')
+    );
 
     node.querySelector('.task-title').textContent = task.title;
     node.querySelector('.task-description').textContent = task.description || '';
@@ -140,20 +190,22 @@ function renderTasks(tasks) {
       }
     }
 
-    node.querySelector('.btn-edit').addEventListener('click', () => startEdit(task));
+    const editBtn = node.querySelector('.btn-edit');
+    editBtn.setAttribute('aria-label', `Edit "${task.title}"`);
+    editBtn.addEventListener('click', () => startEdit(task));
 
     const advanceBtn = node.querySelector('.btn-advance');
     advanceBtn.textContent = ADVANCE_LABEL[task.status];
     advanceBtn.setAttribute('aria-label', `${ADVANCE_LABEL[task.status]} "${task.title}"`);
-    advanceBtn.addEventListener('click', () => setStatus(task.id, NEXT_STATUS[task.status]));
+    advanceBtn.addEventListener('click', () => setStatus(task.id, NEXT_STATUS[task.status], '.btn-advance'));
 
     const archiveBtn = node.querySelector('.btn-archive');
     archiveBtn.setAttribute('aria-label', `Archive "${task.title}"`);
-    archiveBtn.addEventListener('click', () => archiveTask(task.id));
+    archiveBtn.addEventListener('click', () => archiveTask(task));
 
     const restoreBtn = node.querySelector('.btn-restore');
     restoreBtn.setAttribute('aria-label', `Restore "${task.title}"`);
-    restoreBtn.addEventListener('click', () => restoreTask(task.id));
+    restoreBtn.addEventListener('click', () => restoreTask(task));
 
     // Archived tasks are read-only apart from Restore; active ones can't be restored.
     if (state.archived) {
@@ -187,6 +239,12 @@ async function loadTasks() {
   }
   renderTasks(body.items);
   renderPager(body);
+  restoreFocus();
+}
+
+// Entry point for user-driven reloads: errors surface as a retryable toast.
+function reload() {
+  return run(loadTasks);
 }
 
 function renderPager({ page, totalPages, total }) {
@@ -200,37 +258,76 @@ function renderPager({ page, totalPages, total }) {
 // Any change to search/filter/sort/view starts again from page 1.
 function resetAndLoad() {
   state.page = 1;
-  return loadTasks();
+  return reload();
 }
 
-async function setStatus(id, status) {
-  await apiFetch(`/api/tasks/${id}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+function setStatus(id, status, focusChild) {
+  return run(async () => {
+    await apiFetch(`/api/tasks/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    pendingFocus = rowSelector(id, focusChild);
+    await loadTasks();
+    announce(`Status set to ${STATUS_LABELS[status]}`);
   });
-  await loadTasks();
 }
 
-async function archiveTask(id) {
-  await apiFetch(`/api/tasks/${id}/archive`, { method: 'POST' });
-  await loadTasks();
+// The acted-on button leaves the list, so focus moves to the list itself.
+function archiveTask(task) {
+  return run(async () => {
+    await apiFetch(`/api/tasks/${task.id}/archive`, { method: 'POST' });
+    pendingFocus = '#taskList';
+    await loadTasks();
+    announce(`Archived "${task.title}"`);
+  });
 }
 
-async function restoreTask(id) {
-  await apiFetch(`/api/tasks/${id}/restore`, { method: 'POST' });
-  await loadTasks();
+function restoreTask(task) {
+  return run(async () => {
+    await apiFetch(`/api/tasks/${task.id}/restore`, { method: 'POST' });
+    pendingFocus = '#taskList';
+    await loadTasks();
+    announce(`Restored "${task.title}"`);
+  });
+}
+
+function titleError(value) {
+  const title = value.trim();
+  if (!title) return 'Title is required.';
+  if (title.length > 200) return 'Title must be 200 characters or fewer.';
+  return '';
+}
+
+// Shows/clears an inline error and keeps aria-invalid in sync on the input.
+function setFieldError(input, errorEl, message) {
+  errorEl.textContent = message;
+  errorEl.hidden = !message;
+  if (message) input.setAttribute('aria-invalid', 'true');
+  else input.removeAttribute('aria-invalid');
 }
 
 function startEdit(task) {
   const row = document.querySelector(`.task-row[data-id="${task.id}"]`);
   row.innerHTML = '';
 
+  const titleErrorId = `edit-title-error-${task.id}`;
+
   const titleInput = document.createElement('input');
   titleInput.type = 'text';
   titleInput.value = task.title;
   titleInput.setAttribute('aria-label', 'Edit title');
+  titleInput.setAttribute('aria-required', 'true');
+  titleInput.setAttribute('aria-describedby', titleErrorId);
   titleInput.maxLength = 200;
+
+  const titleErrorEl = document.createElement('span');
+  titleErrorEl.id = titleErrorId;
+  titleErrorEl.className = 'field-error';
+  titleErrorEl.setAttribute('role', 'alert');
+  titleErrorEl.hidden = true;
+  titleInput.addEventListener('input', () => setFieldError(titleInput, titleErrorEl, ''));
 
   const descriptionInput = document.createElement('input');
   descriptionInput.type = 'text';
@@ -258,31 +355,60 @@ function startEdit(task) {
     prioritySelect.appendChild(opt);
   }
 
+  const save = async () => {
+    const message = titleError(titleInput.value);
+    setFieldError(titleInput, titleErrorEl, message);
+    if (message) {
+      titleInput.focus();
+      return;
+    }
+    await run(async () => {
+      await apiFetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: titleInput.value,
+          description: descriptionInput.value || null,
+          due_date: dueInput.value || null,
+          priority: prioritySelect.value,
+          tags: parseTags(tagsInput.value),
+        }),
+      });
+      pendingFocus = rowSelector(task.id, '.btn-edit');
+      await loadTasks();
+      announce('Task saved');
+    });
+  };
+
+  const cancel = () => {
+    pendingFocus = rowSelector(task.id, '.btn-edit');
+    reload();
+  };
+
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.textContent = 'Save';
-  saveBtn.addEventListener('click', async () => {
-    await apiFetch(`/api/tasks/${task.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: titleInput.value,
-        description: descriptionInput.value || null,
-        due_date: dueInput.value || null,
-        priority: prioritySelect.value,
-        tags: parseTags(tagsInput.value),
-      }),
-    });
-    await loadTasks();
-  });
+  saveBtn.addEventListener('click', save);
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-cancel';
   cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', loadTasks);
+  cancelBtn.addEventListener('click', cancel);
 
-  row.append(titleInput, descriptionInput, dueInput, tagsInput, prioritySelect, saveBtn, cancelBtn);
+  // Keyboard: Enter in a text/date field saves, Escape anywhere in the row cancels.
+  row.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancel();
+    } else if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+      e.preventDefault();
+      save();
+    }
+  });
+
+  row.append(titleInput, titleErrorEl, descriptionInput, dueInput, tagsInput, prioritySelect, saveBtn, cancelBtn);
+  titleInput.focus();
 }
 
 function wireControls() {
@@ -322,30 +448,57 @@ function wireControls() {
   });
   el('prevPage').addEventListener('click', () => {
     state.page -= 1;
-    loadTasks();
+    reload();
   });
   el('nextPage').addEventListener('click', () => {
     state.page += 1;
-    loadTasks();
+    reload();
   });
+
+  el('toastRetry').addEventListener('click', () => {
+    if (toastRetry) toastRetry();
+  });
+  el('toastDismiss').addEventListener('click', hideToast);
+
+  const titleEl = el('title');
+  const titleErrorEl = el('titleError');
+  titleEl.addEventListener('blur', () => {
+    // only flag a value that is wrong; an untouched empty field stays quiet
+    if (titleEl.value) setFieldError(titleEl, titleErrorEl, titleError(titleEl.value));
+  });
+  titleEl.addEventListener('input', () => setFieldError(titleEl, titleErrorEl, ''));
 
   el('addForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const title = el('title').value;
-    const description = el('description').value || null;
-    const due_date = el('dueDate').value || null;
-    const priority = el('priority').value;
-    const tags = parseTags(el('tags').value);
-    await apiFetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description, due_date, priority, tags }),
+    const form = e.target;
+    const message = titleError(titleEl.value);
+    setFieldError(titleEl, titleErrorEl, message);
+    if (message) {
+      titleEl.focus();
+      return;
+    }
+    const ok = await run(async () => {
+      await apiFetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: titleEl.value,
+          description: el('description').value || null,
+          due_date: el('dueDate').value || null,
+          priority: el('priority').value,
+          tags: parseTags(el('tags').value),
+        }),
+      });
+      await loadTasks();
     });
-    e.target.reset();
-    el('priority').value = 'medium';
-    await loadTasks();
+    if (ok) {
+      form.reset();
+      el('priority').value = 'medium';
+      announce('Task added');
+      titleEl.focus();
+    }
   });
 }
 
 wireControls();
-loadTasks();
+reload();

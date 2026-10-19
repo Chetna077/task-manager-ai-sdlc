@@ -31,10 +31,108 @@ test('create a task', async ({ page }) => {
   await expect(row.locator('.task-priority')).toHaveText('high');
 });
 
-test('rejects an empty title', async ({ page }) => {
+test('rejects an empty title with an inline error (SCRUM-16)', async ({ page }) => {
   await page.click('#addForm button[type="submit"]');
-  // native "required" validation blocks submission; no task should be added
+  // no task is added, the error is shown next to the field, and focus lands on it
   await expect(page.locator('#emptyState')).toBeVisible();
+  await expect(page.locator('#titleError')).toHaveText('Title is required.');
+  await expect(page.locator('#title')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#title')).toBeFocused();
+
+  // typing clears the error
+  await page.fill('#title', 'Now valid');
+  await expect(page.locator('#titleError')).toBeHidden();
+  await expect(page.locator('#title')).not.toHaveAttribute('aria-invalid', 'true');
+});
+
+test('whitespace-only title is rejected inline, also when editing (SCRUM-16)', async ({ page }) => {
+  await page.fill('#title', '   ');
+  await page.click('#addForm button[type="submit"]');
+  await expect(page.locator('#titleError')).toBeVisible();
+
+  await page.fill('#title', 'Editable');
+  await page.click('#addForm button[type="submit"]');
+  const row = page.locator('.task-row', { hasText: 'Editable' });
+  await row.locator('.btn-edit').click();
+  await page.getByRole('textbox', { name: 'Edit title' }).fill('');
+  await page.click('.task-row >> text=Save');
+  await expect(page.locator('.field-error', { hasText: 'Title is required.' }).last()).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Edit title' })).toBeFocused();
+});
+
+test('keyboard: Enter saves an edit, Escape cancels it, focus returns to Edit (SCRUM-16)', async ({ page }) => {
+  await page.fill('#title', 'Keyboard task');
+  await page.click('#addForm button[type="submit"]');
+  const row = page.locator('.task-row', { hasText: 'Keyboard task' });
+
+  await row.locator('.btn-edit').focus();
+  await page.keyboard.press('Enter');
+  const titleInput = page.getByRole('textbox', { name: 'Edit title' });
+  await expect(titleInput).toBeFocused(); // focus moves into the editor
+
+  await titleInput.fill('Discarded');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.task-row', { hasText: 'Keyboard task' })).toBeVisible();
+  await expect(page.locator('.task-row .btn-edit')).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await page.getByRole('textbox', { name: 'Edit title' }).fill('Saved by keyboard');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.task-row', { hasText: 'Saved by keyboard' })).toBeVisible();
+  await expect(page.locator('.task-row .btn-edit')).toBeFocused();
+});
+
+test('keyboard: archive with Space and focus lands on the list (SCRUM-16)', async ({ page }) => {
+  await page.fill('#title', 'To archive');
+  await page.click('#addForm button[type="submit"]');
+  await page.locator('.task-row .btn-archive').focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('.task-row')).toHaveCount(0);
+  await expect(page.locator('#taskList')).toBeFocused();
+  await expect(page.locator('#liveStatus')).toHaveText('Archived "To archive"');
+});
+
+test('skip link is the first tab stop (SCRUM-16)', async ({ page }) => {
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.skip-link')).toBeFocused();
+});
+
+test('a failed request shows an error with Retry that re-runs it (SCRUM-16)', async ({ page }) => {
+  await page.fill('#title', 'Flaky');
+  await page.click('#addForm button[type="submit"]');
+  const row = page.locator('.task-row', { hasText: 'Flaky' });
+  await expect(row).toBeVisible();
+
+  let failures = 1;
+  await page.route('**/api/tasks/*/archive', (route) => {
+    if (failures-- > 0) return route.abort();
+    return route.continue();
+  });
+
+  await row.locator('.btn-archive').click();
+  await expect(page.locator('#toast')).toBeVisible();
+  await expect(page.locator('#toastMessage')).toContainText('Could not reach the server');
+  await expect(row).toBeVisible(); // nothing changed yet
+
+  await page.click('#toastRetry');
+  await expect(row).toHaveCount(0);
+  await expect(page.locator('#toast')).toBeHidden();
+});
+
+test('a 4xx error is shown without Retry and can be dismissed (SCRUM-16)', async ({ page }) => {
+  await page.route('**/api/tasks', (route) => {
+    if (route.request().method() === 'POST') {
+      return route.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"tags are bad"}' });
+    }
+    return route.continue();
+  });
+  await page.fill('#title', 'Rejected');
+  await page.click('#addForm button[type="submit"]');
+  await expect(page.locator('#toastMessage')).toHaveText('tags are bad');
+  await expect(page.locator('#toastRetry')).toBeHidden();
+  await expect(page.locator('#title')).toHaveValue('Rejected'); // input kept
+  await page.click('#toastDismiss');
+  await expect(page.locator('#toast')).toBeHidden();
 });
 
 test('edit a task title', async ({ page }) => {
