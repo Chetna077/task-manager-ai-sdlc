@@ -1,7 +1,29 @@
 const STATUSES = ['todo', 'in_progress', 'done'];
 const PRIORITIES = ['low', 'medium', 'high'];
 
+const MAX_TAGS = 10;
+const MAX_TAG_LENGTH = 30;
+
 class ValidationError extends Error {}
+
+// Accepts an array of strings or a comma-separated string; returns a
+// trimmed, lowercased, de-duplicated array. Commas are the storage separator,
+// so they cannot appear inside a tag.
+function normalizeTags(raw) {
+  const list = Array.isArray(raw) ? raw : String(raw).split(',');
+  const out = [];
+  for (const item of list) {
+    if (typeof item !== 'string') throw new ValidationError('tags must be strings');
+    const tag = item.trim().toLowerCase();
+    if (!tag) continue;
+    if (tag.length > MAX_TAG_LENGTH || tag.includes(',')) {
+      throw new ValidationError(`each tag must be 1-${MAX_TAG_LENGTH} characters and not contain commas`);
+    }
+    if (!out.includes(tag)) out.push(tag);
+  }
+  if (out.length > MAX_TAGS) throw new ValidationError(`a task can have at most ${MAX_TAGS} tags`);
+  return out;
+}
 
 function isValidIsoDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -56,7 +78,19 @@ function validateTaskInput(input, { partial = false } = {}) {
     }
   }
 
+  if (input.tags !== undefined) {
+    out.tags = input.tags === null ? [] : normalizeTags(input.tags);
+  }
+
   return out;
 }
 
-module.exports = { validateTaskInput, ValidationError, STATUSES, PRIORITIES };
+module.exports = {
+  validateTaskInput,
+  normalizeTags,
+  ValidationError,
+  STATUSES,
+  PRIORITIES,
+  MAX_TAGS,
+  MAX_TAG_LENGTH,
+};

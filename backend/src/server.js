@@ -1,6 +1,6 @@
 const path = require('node:path');
 const express = require('express');
-const { openDb, TaskRepository } = require('./db');
+const { openDb, TaskRepository, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } = require('./db');
 const { validateTaskInput, ValidationError, STATUSES } = require('./validation');
 
 function createApp(dbPath) {
@@ -15,15 +15,34 @@ function createApp(dbPath) {
     // Query params can arrive as arrays if a key is repeated (?status=a&status=b);
     // take the first value so listTasks always gets a plain string or undefined.
     const asString = (v) => (Array.isArray(v) ? v[0] : v);
-    const { search, status, priority, sortBy, sortDir } = req.query;
-    const tasks = repo.listTasks({
+    const { search, status, priority, tag, archived, sortBy, sortDir } = req.query;
+    // Absent -> default; present but not a positive integer (or pageSize over
+    // the cap) -> 400 rather than silently returning a different page.
+    const parsePositiveInt = (raw, fallback, max) => {
+      if (raw === undefined || raw === '') return fallback;
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 1 || (max && n > max)) return null;
+      return n;
+    };
+    const page = parsePositiveInt(asString(req.query.page), 1);
+    const pageSize = parsePositiveInt(asString(req.query.pageSize), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    if (page === null) return res.status(400).json({ error: 'page must be a positive integer' });
+    if (pageSize === null) {
+      return res.status(400).json({ error: `pageSize must be an integer between 1 and ${MAX_PAGE_SIZE}` });
+    }
+
+    const result = repo.listTasksPage({
+      page,
+      pageSize,
       search: asString(search),
       status: asString(status),
       priority: asString(priority),
+      tag: asString(tag),
+      archived: asString(archived) === 'true',
       sortBy: asString(sortBy),
       sortDir: asString(sortDir),
     });
-    res.json(tasks);
+    res.json(result);
   });
 
   app.get('/api/tasks/:id', (req, res) => {
@@ -65,10 +84,24 @@ function createApp(dbPath) {
     res.json(task);
   });
 
+  // Archive/restore replace hard delete (SCRUM-7/8). DELETE is kept as an alias
+  // of archive so existing clients keep working; nothing removes rows any more.
+  const archive = (req, res) => {
+    const task = repo.archiveTask(Number(req.params.id));
+    if (!task) return res.status(404).json({ error: 'task not found' });
+    res.json(task);
+  };
+  app.post('/api/tasks/:id/archive', archive);
   app.delete('/api/tasks/:id', (req, res) => {
-    const deleted = repo.deleteTask(Number(req.params.id));
-    if (!deleted) return res.status(404).json({ error: 'task not found' });
+    const task = repo.archiveTask(Number(req.params.id));
+    if (!task) return res.status(404).json({ error: 'task not found' });
     res.status(204).end();
+  });
+
+  app.post('/api/tasks/:id/restore', (req, res) => {
+    const task = repo.restoreTask(Number(req.params.id));
+    if (!task) return res.status(404).json({ error: 'task not found' });
+    res.json(task);
   });
 
   // eslint-disable-next-line no-unused-vars

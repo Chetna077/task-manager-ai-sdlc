@@ -7,10 +7,17 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <main id="main">
     <h1>Task Manager</h1>
 
-    <div id="toast" class="toast" role="alert" hidden></div>
+    <div id="liveStatus" class="sr-only" role="status" aria-live="polite"></div>
+
+    <div id="toast" class="toast" role="alert" hidden>
+      <span id="toastMessage"></span>
+      <button type="button" id="toastRetry" hidden>Retry</button>
+      <button type="button" id="toastDismiss" aria-label="Dismiss error message">Dismiss</button>
+    </div>
 
     <section class="controls" aria-label="Search, filter and sort">
       <label for="search">Search</label>
@@ -32,6 +39,13 @@
         <option value="high">High</option>
       </select>
 
+      <label for="tagFilter">Tag</label>
+      <input id="tagFilter" type="search" placeholder="Filter by tag..." />
+
+      <label for="showArchived">
+        <input id="showArchived" type="checkbox" /> Show archived
+      </label>
+
       <label for="sortBy">Sort by</label>
       <select id="sortBy">
         <option value="created_at">Created</option>
@@ -46,15 +60,19 @@
       </select>
     </section>
 
-    <form id="addForm" aria-label="Add a task">
+    <form id="addForm" aria-label="Add a task" novalidate>
       <label for="title">Title</label>
-      <input id="title" name="title" type="text" required maxlength="200" />
+      <input id="title" name="title" type="text" required aria-required="true" maxlength="200" aria-describedby="titleError" />
+      <p id="titleError" class="field-error" role="alert" hidden></p>
 
       <label for="description">Description</label>
       <input id="description" name="description" type="text" maxlength="2000" />
 
       <label for="dueDate">Due date</label>
       <input id="dueDate" name="due_date" type="date" />
+
+      <label for="tags">Tags</label>
+      <input id="tags" name="tags" type="text" placeholder="comma, separated" />
 
       <label for="priority">Priority</label>
       <select id="priority" name="priority">
@@ -66,8 +84,21 @@
       <button type="submit">Add task</button>
     </form>
 
-    <ul id="taskList" aria-label="Tasks"></ul>
-    <p id="emptyState" hidden>No tasks match your search/filters.</p>
+    <ul id="taskList" aria-label="Tasks" tabindex="-1"></ul>
+    <p id="emptyState" role="status" hidden>No tasks match your search/filters.</p>
+
+    <nav id="pager" class="pager" aria-label="Pagination" hidden>
+      <button type="button" id="prevPage">Previous</button>
+      <span id="pageInfo" aria-live="polite"></span>
+      <button type="button" id="nextPage">Next</button>
+      <label for="pageSize">Per page</label>
+      <select id="pageSize">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </nav>
   </main>
 
   <template id="taskRowTemplate">
@@ -77,10 +108,12 @@
       <span class="task-description"></span>
       <span class="task-status"></span>
       <span class="task-priority"></span>
+      <span class="task-tags"></span>
       <span class="task-due"></span>
       <button type="button" class="btn-edit">Edit</button>
       <button type="button" class="btn-advance"></button>
-      <button type="button" class="btn-delete">Delete</button>
+      <button type="button" class="btn-archive">Archive</button>
+      <button type="button" class="btn-restore">Restore</button>
     </li>
   </template>
 

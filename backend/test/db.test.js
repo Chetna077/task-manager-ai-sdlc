@@ -76,16 +76,50 @@ test('setStatus supports reopen (done -> todo)', () => {
   assert.equal(reopened.status, 'todo');
 });
 
-test('deleteTask removes the row and returns true', () => {
+test('archiveTask hides the task from the default list but keeps the row (SCRUM-7)', () => {
   const repo = freshRepo();
   const task = repo.createTask({ title: 'A', status: 'todo', priority: 'medium' });
-  assert.equal(repo.deleteTask(task.id), true);
-  assert.equal(repo.getTask(task.id), null);
+  const archived = repo.archiveTask(task.id);
+  assert.ok(archived.archived_at);
+  assert.equal(repo.listTasks().length, 0);
+  assert.equal(repo.getTask(task.id).title, 'A');
 });
 
-test('deleteTask returns false for unknown id', () => {
+test('listTasks({ archived: true }) returns only archived tasks and honours filters', () => {
   const repo = freshRepo();
-  assert.equal(repo.deleteTask(9999), false);
+  const a = repo.createTask({ title: 'Alpha', status: 'todo', priority: 'high', tags: ['x'] });
+  const b = repo.createTask({ title: 'Beta', status: 'todo', priority: 'low' });
+  repo.createTask({ title: 'Active', status: 'todo', priority: 'high', tags: ['x'] });
+  repo.archiveTask(a.id);
+  repo.archiveTask(b.id);
+
+  assert.deepEqual(repo.listTasks({ archived: true }).map((t) => t.title), ['Alpha', 'Beta']);
+  assert.deepEqual(repo.listTasks({ archived: true, tag: 'x' }).map((t) => t.title), ['Alpha']);
+  assert.deepEqual(repo.listTasks({ archived: true, search: 'bet' }).map((t) => t.title), ['Beta']);
+  assert.deepEqual(repo.listTasks().map((t) => t.title), ['Active']);
+});
+
+test('restoreTask returns the task to the default list (SCRUM-8)', () => {
+  const repo = freshRepo();
+  const task = repo.createTask({ title: 'A', status: 'in_progress', priority: 'medium' });
+  repo.archiveTask(task.id);
+  const restored = repo.restoreTask(task.id);
+  assert.equal(restored.archived_at, null);
+  assert.equal(restored.status, 'in_progress');
+  assert.equal(repo.listTasks().length, 1);
+});
+
+test('archiveTask is idempotent and keeps the original archived_at', () => {
+  const repo = freshRepo();
+  const task = repo.createTask({ title: 'A', status: 'todo', priority: 'medium' });
+  const first = repo.archiveTask(task.id).archived_at;
+  assert.equal(repo.archiveTask(task.id).archived_at, first);
+});
+
+test('archiveTask / restoreTask return null for unknown id', () => {
+  const repo = freshRepo();
+  assert.equal(repo.archiveTask(9999), null);
+  assert.equal(repo.restoreTask(9999), null);
 });
 
 test('listTasks search escapes SQL LIKE wildcards (% and _)', () => {
@@ -99,4 +133,83 @@ test('listTasks search escapes SQL LIKE wildcards (% and _)', () => {
   const results = repo.listTasks({ search: '50%' });
   assert.equal(results.length, 1);
   assert.equal(results[0].title, '50% discount');
+});
+
+test('tags round-trip as an array and default to empty (SCRUM-12)', () => {
+  const repo = freshRepo();
+  const a = repo.createTask({ title: 'A', status: 'todo', priority: 'medium', tags: ['work', 'urgent'] });
+  const b = repo.createTask({ title: 'B', status: 'todo', priority: 'medium' });
+  assert.deepEqual(repo.getTask(a.id).tags, ['work', 'urgent']);
+  assert.deepEqual(repo.getTask(b.id).tags, []);
+});
+
+test('updateTask replaces tags; omitting tags keeps them', () => {
+  const repo = freshRepo();
+  const t = repo.createTask({ title: 'A', status: 'todo', priority: 'medium', tags: ['x'] });
+  assert.deepEqual(repo.updateTask(t.id, { title: 'A2' }).tags, ['x']);
+  assert.deepEqual(repo.updateTask(t.id, { tags: ['y', 'z'] }).tags, ['y', 'z']);
+  assert.deepEqual(repo.updateTask(t.id, { tags: [] }).tags, []);
+});
+
+test('listTasks filters by exact tag, not substring (SCRUM-13)', () => {
+  const repo = freshRepo();
+  repo.createTask({ title: 'A', status: 'todo', priority: 'medium', tags: ['work'] });
+  repo.createTask({ title: 'B', status: 'todo', priority: 'medium', tags: ['homework', 'work'] });
+  repo.createTask({ title: 'C', status: 'todo', priority: 'medium', tags: ['homework'] });
+
+  assert.deepEqual(repo.listTasks({ tag: 'work' }).map((t) => t.title), ['A', 'B']);
+  assert.deepEqual(repo.listTasks({ tag: ' WORK ' }).map((t) => t.title), ['A', 'B']);
+  assert.equal(repo.listTasks({ tag: 'wor' }).length, 0);
+});
+
+test('tag filter combines with search and priority', () => {
+  const repo = freshRepo();
+  repo.createTask({ title: 'Write report', status: 'todo', priority: 'high', tags: ['work'] });
+  repo.createTask({ title: 'Write email', status: 'todo', priority: 'low', tags: ['work'] });
+  const r = repo.listTasks({ tag: 'work', search: 'write', priority: 'high' });
+  assert.deepEqual(r.map((t) => t.title), ['Write report']);
+});
+
+test('openDb migrates a pre-tags database in place without losing rows', () => {
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { DatabaseSync } = require('node:sqlite');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tm-mig-')), 'old.db');
+  const old = new DatabaseSync(file);
+  old.exec(`CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT,
+    status TEXT NOT NULL DEFAULT 'todo', priority TEXT NOT NULL DEFAULT 'medium',
+    due_date TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    INSERT INTO tasks (title, created_at, updated_at) VALUES ('legacy', 'x', 'x');`);
+  old.close();
+
+  const db = openDb(file);
+  const repo = new TaskRepository(db);
+  assert.deepEqual(repo.listTasks().map((t) => [t.title, t.tags]), [['legacy', []]]);
+  assert.equal(repo.getTask(1).archived_at, null); // archived_at column added too (SCRUM-7)
+  db.close();
+  openDb(file).close(); // second open is a no-op (idempotent)
+  fs.rmSync(path.dirname(file), { recursive: true, force: true });
+});
+
+test('listTasksPage slices the same ordered result set as listTasks (SCRUM-14)', () => {
+  const repo = freshRepo();
+  for (let i = 1; i <= 7; i++) {
+    repo.createTask({ title: `T${i}`, status: 'todo', priority: ['low', 'high'][i % 2] });
+  }
+  const opts = { sortBy: 'priority', sortDir: 'desc' };
+  const all = repo.listTasks(opts).map((t) => t.id);
+  const p1 = repo.listTasksPage({ ...opts, page: 1, pageSize: 3 });
+  const p3 = repo.listTasksPage({ ...opts, page: 3, pageSize: 3 });
+  assert.deepEqual(p1.items.map((t) => t.id), all.slice(0, 3));
+  assert.deepEqual(p3.items.map((t) => t.id), all.slice(6));
+  assert.deepEqual([p1.total, p1.totalPages, p3.items.length], [7, 3, 1]);
+});
+
+test('listTasksPage defaults to page 1, size 10', () => {
+  const repo = freshRepo();
+  for (let i = 0; i < 12; i++) repo.createTask({ title: `T${i}`, status: 'todo', priority: 'medium' });
+  const p = repo.listTasksPage();
+  assert.deepEqual([p.page, p.pageSize, p.items.length, p.totalPages], [1, 10, 10, 2]);
 });
