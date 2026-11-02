@@ -42,3 +42,24 @@ capstone's "front end + back end" requirement.
   dependency count and eliminate a bundler as a failure point, given the
   environment had no Node.js/npm pre-installed at project start (see
   [confluence/architecture.md](confluence/architecture.md) "Constraints").
+
+## Delivery status (release 1.1.0)
+
+This section links the plan to what was delivered. It is updated after the human-approved review of PR #2
+(<https://github.com/Chetna077/task-manager-ai-sdlc/pull/2>), which delivered tags, archive and restore, pagination
+and accessibility. Test result for that release: 56 backend tests and 15 Playwright tests passing.
+
+| Jira | Story | Status in Jira |
+|---|---|---|
+| SCRUM-7 | TM-102 Delete a task | Done |
+| SCRUM-8 | TM-103 Reopen a completed task | Done |
+| SCRUM-12 | TM-107 Search tasks by title | Done |
+| SCRUM-13 | TM-108 Filter tasks by status and priority | Done |
+| SCRUM-14 | TM-109 Sort tasks by due date, priority, or created date | Done |
+| SCRUM-16 | TM-TASK-009 Non-functional: accessibility, performance, error handling | Done |
+
+SCRUM-9, SCRUM-10, SCRUM-11 and SCRUM-15 were not changed in this release and remain To Do in Jira.
+
+Review of PR #2: [Code Review - PR 2](https://chetnadeshwal24.atlassian.net/wiki/spaces/TMC/pages/12222465/Code+Review+-+PR+2)
+(decision: Approve with Comments). Test and build report:
+[Test and Build Report 1.1.0](https://chetnadeshwal24.atlassian.net/wiki/spaces/TMC/pages/12189697/Test+and+Build+Report+1.1.0+-+Task+Manager).
