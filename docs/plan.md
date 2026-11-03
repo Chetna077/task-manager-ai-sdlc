@@ -53,12 +53,16 @@ and accessibility. Test result for that release: 56 backend tests and 15 Playwri
 |---|---|---|
 | SCRUM-7 | TM-102 Delete a task | Done |
 | SCRUM-8 | TM-103 Reopen a completed task | Done |
+| SCRUM-9 | TM-104 Add due date to a task | Done |
+| SCRUM-10 | TM-105 Add priority to a task | Done |
+| SCRUM-11 | TM-106 Status workflow: To Do, In Progress, Done | Done |
 | SCRUM-12 | TM-107 Search tasks by title | Done |
 | SCRUM-13 | TM-108 Filter tasks by status and priority | Done |
 | SCRUM-14 | TM-109 Sort tasks by due date, priority, or created date | Done |
+| SCRUM-15 | TM-TASK-008 Testing: unit, API, and E2E tests | Done |
 | SCRUM-16 | TM-TASK-009 Non-functional: accessibility, performance, error handling | Done |
 
-SCRUM-9, SCRUM-10, SCRUM-11 and SCRUM-15 were not changed in this release and remain To Do in Jira.
+SCRUM-9, SCRUM-10, SCRUM-11 and SCRUM-15 were built in the first delivery (due date, priority and status workflow in the schema, API and UI; unit, API and E2E tests) and are verified by the same 56 backend and 15 Playwright tests. They were moved to Done in Jira after that verification, so all stories under SCRUM-5 are Done.
 
 Review of PR #2: [Code Review - PR 2](https://chetnadeshwal24.atlassian.net/wiki/spaces/TMC/pages/12222465/Code+Review+-+PR+2)
 (decision: Approve with Comments). Test and build report:
