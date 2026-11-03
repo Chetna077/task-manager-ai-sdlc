@@ -48,3 +48,31 @@ test('partial update omits fields not provided', () => {
   const out = validateTaskInput({ priority: 'high' }, { partial: true });
   assert.deepEqual(out, { priority: 'high' });
 });
+
+test('normalizes tags: trims, lowercases, de-duplicates (SCRUM-12)', () => {
+  const out = validateTaskInput({ title: 'a', tags: [' Work ', 'URGENT', 'work', ''] });
+  assert.deepEqual(out.tags, ['work', 'urgent']);
+});
+
+test('accepts tags as a comma-separated string', () => {
+  const out = validateTaskInput({ title: 'a', tags: 'home, errands' });
+  assert.deepEqual(out.tags, ['home', 'errands']);
+});
+
+test('rejects a tag over 30 chars', () => {
+  assert.throws(() => validateTaskInput({ title: 'a', tags: ['x'.repeat(31)] }), ValidationError);
+});
+
+test('rejects more than 10 tags', () => {
+  const tags = Array.from({ length: 11 }, (_, i) => `t${i}`);
+  assert.throws(() => validateTaskInput({ title: 'a', tags }), ValidationError);
+});
+
+test('rejects non-string tag entries', () => {
+  assert.throws(() => validateTaskInput({ title: 'a', tags: [1] }), ValidationError);
+});
+
+test('tags: null clears tags on partial update', () => {
+  const out = validateTaskInput({ tags: null }, { partial: true });
+  assert.deepEqual(out.tags, []);
+});

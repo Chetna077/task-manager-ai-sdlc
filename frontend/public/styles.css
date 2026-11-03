@@ -57,10 +57,6 @@ button {
   border: none;
 }
 
-button.btn-delete {
-  background: #b42318;
-}
-
 button.btn-edit,
 button.btn-cancel {
   background: #6b7280;
@@ -128,4 +124,114 @@ button.btn-cancel {
   color: #6b7280;
   text-align: center;
   padding: 2rem 0;
+}
+
+.task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+button.tag-chip {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #027a48;
+  border: 1px solid #a6f4c5;
+}
+
+button.btn-archive {
+  background: #b54708;
+}
+
+button.btn-restore {
+  background: #027a48;
+}
+
+.task-row.archived .task-title {
+  color: var(--done);
+  font-style: italic;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+}
+
+.pager button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* --- Accessibility & UX (SCRUM-16) --- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  background: #111827;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+#taskList:focus {
+  outline: none;
+}
+
+.field-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--overdue);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+input[aria-invalid='true'] {
+  border-color: var(--overdue);
+  box-shadow: 0 0 0 1px var(--overdue);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toast span {
+  flex: 1;
+}
+
+.toast button {
+  background: var(--overdue);
 }
