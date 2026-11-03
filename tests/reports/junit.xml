@@ -1,18 +1,34 @@
-<testsuites id="" name="" tests="7" failures="0" skipped="0" errors="0" time="3.525039">
-<testsuite name="task-manager.spec.js" timestamp="2026-09-22T14:34:59.283Z" hostname="" tests="7" failures="0" skipped="0" time="2.164" errors="0">
-<testcase name="create a task" classname="task-manager.spec.js" time="0.303">
+<testsuites id="" name="" tests="15" failures="0" skipped="0" errors="0" time="7.599248">
+<testsuite name="task-manager.spec.js" timestamp="2026-10-19T13:35:46.009Z" hostname="" tests="15" failures="0" skipped="0" time="5.829" errors="0">
+<testcase name="create a task" classname="task-manager.spec.js" time="0.398">
 </testcase>
-<testcase name="rejects an empty title" classname="task-manager.spec.js" time="0.209">
+<testcase name="rejects an empty title with an inline error (SCRUM-16)" classname="task-manager.spec.js" time="0.296">
 </testcase>
-<testcase name="edit a task title" classname="task-manager.spec.js" time="0.339">
+<testcase name="whitespace-only title is rejected inline, also when editing (SCRUM-16)" classname="task-manager.spec.js" time="0.45">
 </testcase>
-<testcase name="edit a task description (TM-101)" classname="task-manager.spec.js" time="0.343">
+<testcase name="keyboard: Enter saves an edit, Escape cancels it, focus returns to Edit (SCRUM-16)" classname="task-manager.spec.js" time="0.421">
 </testcase>
-<testcase name="advance status to Done then reopen" classname="task-manager.spec.js" time="0.427">
+<testcase name="keyboard: archive with Space and focus lands on the list (SCRUM-16)" classname="task-manager.spec.js" time="0.411">
 </testcase>
-<testcase name="search filters the visible list" classname="task-manager.spec.js" time="0.253">
+<testcase name="skip link is the first tab stop and jumps to main (SCRUM-16)" classname="task-manager.spec.js" time="0.212">
 </testcase>
-<testcase name="delete removes the task" classname="task-manager.spec.js" time="0.29">
+<testcase name="a failed request shows an error with Retry that re-runs it (SCRUM-16)" classname="task-manager.spec.js" time="0.43">
+</testcase>
+<testcase name="a 4xx error is shown without Retry and can be dismissed (SCRUM-16)" classname="task-manager.spec.js" time="0.319">
+</testcase>
+<testcase name="edit a task title" classname="task-manager.spec.js" time="0.384">
+</testcase>
+<testcase name="edit a task description (TM-101)" classname="task-manager.spec.js" time="0.403">
+</testcase>
+<testcase name="advance status to Done then reopen" classname="task-manager.spec.js" time="0.502">
+</testcase>
+<testcase name="search filters the visible list" classname="task-manager.spec.js" time="0.329">
+</testcase>
+<testcase name="archive hides the task; archived view lists it; restore brings it back (SCRUM-7/8)" classname="task-manager.spec.js" time="0.554">
+</testcase>
+<testcase name="add tags and filter by tag (SCRUM-12/13)" classname="task-manager.spec.js" time="0.322">
+</testcase>
+<testcase name="pagination: next/previous, and filters reset to page 1 (SCRUM-14)" classname="task-manager.spec.js" time="0.398">
 </testcase>
 </testsuite>
 </testsuites>
